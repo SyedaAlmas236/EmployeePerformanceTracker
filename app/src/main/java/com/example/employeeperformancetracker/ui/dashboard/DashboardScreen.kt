@@ -2,6 +2,7 @@ package com.example.employeeperformancetracker.ui.dashboard
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,20 +21,26 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,15 +52,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.employeeperformancetracker.R
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.ui.navigation.Screen
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
+    val scope = rememberCoroutineScope()
     Scaffold(
-        topBar = { TopBar() },
+        bottomBar = { BottomNavigationBar(navController = navController) },
         containerColor = Color(0xFFF2F4F7)
     ) { paddingValues ->
         Column(
@@ -62,39 +73,57 @@ fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            Header()
+            Header(scope, drawerState)
             KPISection()
-            TopPerformersSection()
+            TopPerformersSection(navController)
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { navController.navigate(Screen.Analytics.route) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A3A8D))
+            ) {
+                Icon(Icons.Default.Analytics, contentDescription = "Analytics Icon", tint = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "View Analytics", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-private fun TopBar() {
-    // This would typically be a more dynamic TopAppBar
-    // For this prototype, it's simplified
-}
-
-@Composable
-private fun Header() {
-    Row(
+private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: DrawerState) {
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF2A3A8D))
-            .padding(horizontal = 16.dp, vertical = 24.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(
+                Color(0xFF2A3A8D), 
+                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+            )
+            .padding(16.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = "Dashboard", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text(text = "Welcome back, Admin", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+            }
+            Image(
+                painter = painterResource(id = R.drawable.ic_launcher_background), // Placeholder
+                contentDescription = "Admin Profile",
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+            )
         }
-        Image(
-            painter = painterResource(id = R.drawable.ic_launcher_background), // Placeholder
-            contentDescription = "Admin Profile",
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = "Dashboard", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text(text = "Welcome back, Admin", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
     }
 }
 
@@ -117,44 +146,42 @@ private fun KPISection() {
 private fun KPICard(modifier: Modifier = Modifier, title: String, value: String, icon: ImageVector, iconColor: Color) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = icon, contentDescription = title, tint = iconColor, modifier = Modifier.size(32.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(text = title, fontSize = 14.sp, color = Color.Gray)
-                Text(text = value, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            }
+        Column(modifier = Modifier.padding(16.dp)) {
+            Icon(imageVector = icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = title, fontSize = 14.sp, color = Color.Gray)
+            Text(text = value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = if (title == "Top Performer") Color(0xFFD32F2F) else Color.Black)
         }
     }
 }
 
 @Composable
-private fun TopPerformersSection() {
+private fun TopPerformersSection(navController: NavController) {
     val topPerformers = EmployeeRepository.getEmployees().sortedByDescending { it.rating }.take(3)
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Star, contentDescription = "Star", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.Star, contentDescription = "Star", tint = Color(0xFFF57C00))
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = "Top 3 Performers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             topPerformers.forEachIndexed { index, employee ->
-                PerformerCard(employee = employee, rank = index + 1)
+                PerformerCard(employee = employee, rank = index + 1, navController = navController)
             }
         }
     }
 }
 
 @Composable
-private fun PerformerCard(employee: Employee, rank: Int) {
+private fun PerformerCard(employee: Employee, rank: Int, navController: NavController) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { navController.navigate("employee_profile/${employee.name}") },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -162,11 +189,11 @@ private fun PerformerCard(employee: Employee, rank: Int) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(32.dp)
                     .background(Color(0xFFE8EAF6), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "#$rank", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text(text = "#$rank", fontWeight = FontWeight.Bold, color = Color(0xFF3949AB))
             }
             Spacer(modifier = Modifier.width(12.dp))
             Image(
@@ -191,7 +218,7 @@ private fun PerformerCard(employee: Employee, rank: Int) {
 private fun RatingBadge(rating: Float) {
     Card(
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF43A047))
     ) {
         Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Star, contentDescription = "Rating", tint = Color.White, modifier = Modifier.size(16.dp))
@@ -199,4 +226,34 @@ private fun RatingBadge(rating: Float) {
             Text(text = rating.toString(), color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
+}
+
+@Composable
+fun BottomNavigationBar(navController: NavController) {
+    val items = listOf(
+        Screen.Dashboard, 
+        Screen.EmployeeList, 
+        Screen.TaskList, 
+        Screen.Analytics, 
+        Screen.Settings
+    )
+    NavigationBar {
+        val currentRoute = currentRoute(navController)
+        items.forEach { screen ->
+            screen.icon?.let {
+                NavigationBarItem(
+                    icon = { Icon(imageVector = it, contentDescription = screen.route) },
+                    label = { Text(screen.route) },
+                    selected = currentRoute == screen.route,
+                    onClick = { navController.navigate(screen.route) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun currentRoute(navController: NavController): String? {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    return navBackStackEntry?.destination?.route
 }

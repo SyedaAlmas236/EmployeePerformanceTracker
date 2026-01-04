@@ -6,7 +6,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +44,6 @@ import com.example.employeeperformancetracker.R
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
 
-// --- Colors ---
 private val PrimaryBlue = Color(0xFF3949AB)
 private val BackgroundGray = Color(0xFFF8F9FA)
 private val GoldColor = Color(0xFFFFC107)
@@ -42,7 +51,6 @@ private val GreenColor = Color(0xFF4CAF50)
 private val OrangeColor = Color(0xFFF57C00)
 private val RedColor = Color(0xFFD32F2F)
 
-// --- Main Screen ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployeeProfileScreen(navController: NavController, employeeName: String?) {
@@ -87,7 +95,6 @@ fun EmployeeProfileScreen(navController: NavController, employeeName: String?) {
     }
 }
 
-// --- Top Bar ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TopAppBar(navController: NavController, onEditClick: () -> Unit) {
@@ -139,7 +146,6 @@ private fun EditProfileSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // Header
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Close")
@@ -149,7 +155,6 @@ private fun EditProfileSheet(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Profile Image
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -182,7 +187,6 @@ private fun EditProfileSheet(
             }
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Form
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = fullName,
@@ -267,7 +271,6 @@ private fun EditProfileSheet(
             }
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Buttons
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
                     Text("Cancel")
@@ -287,7 +290,6 @@ private fun EditProfileSheet(
     }
 }
 
-// --- Header ---
 @Composable
 private fun ProfileHeader(employee: Employee, imageUri: Uri?) {
     Column(
@@ -322,7 +324,6 @@ private fun ProfileHeader(employee: Employee, imageUri: Uri?) {
     }
 }
 
-// --- Tabs ---
 @Composable
 private fun ProfileTabs(employee: Employee) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -362,7 +363,6 @@ private fun ProfileTabs(employee: Employee) {
     }
 }
 
-// --- Profile Tab Content ---
 @Composable
 private fun ProfileInfoSection(employee: Employee) {
     var email by rememberSaveable(employee.name) { mutableStateOf("${employee.name.replace(" ", ".").lowercase()}@company.com") }
@@ -377,19 +377,18 @@ private fun ProfileInfoSection(employee: Employee) {
     ) {
         Column {
             InfoRow(icon = Icons.Default.Badge, label = "Employee ID", value = employee.id)
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            Divider(modifier = Modifier.padding(horizontal = 16.dp))
             InfoRow(icon = Icons.Default.Email, label = "Email", value = email)
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            Divider(modifier = Modifier.padding(horizontal = 16.dp))
             InfoRow(icon = Icons.Default.Phone, label = "Phone", value = phone)
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            Divider(modifier = Modifier.padding(horizontal = 16.dp))
             InfoRow(icon = Icons.Default.DateRange, label = "Joining Date", value = "Jan 15, 2022")
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            Divider(modifier = Modifier.padding(horizontal = 16.dp))
             DepartmentInfoRow(department = employee.department)
         }
     }
 }
 
-// --- Tasks Tab Content ---
 @Composable
 private fun TasksSection() {
     Column(
@@ -402,7 +401,6 @@ private fun TasksSection() {
     }
 }
 
-// --- Performance Tab Content ---
 @Composable
 private fun PerformanceSection() {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -434,7 +432,6 @@ private fun PerformanceSection() {
     }
 }
 
-// --- Reusable Components ---
 @Composable
 private fun InfoRow(icon: ImageVector, label: String, value: String) {
     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
