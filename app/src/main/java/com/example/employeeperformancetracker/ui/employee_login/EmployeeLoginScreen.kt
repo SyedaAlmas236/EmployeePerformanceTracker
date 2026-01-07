@@ -1,5 +1,6 @@
 package com.example.employeeperformancetracker.ui.employee_login
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,23 +15,56 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.employeeperformancetracker.data.auth.AuthState
+import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmployeeLoginScreen(navController: NavController) {
+fun EmployeeLoginScreen(
+    navController: NavController,
+    viewModel: AuthViewModel = viewModel()
+) {
     val accentColor = Color(0xFF43A047)
+    val context = LocalContext.current
+    val authState by viewModel.authState.collectAsState()
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+
+    // Handle auth state changes
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Success -> {
+                val role = (authState as AuthState.Success).userRole
+                if (role == "employee") {
+                    Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+                    viewModel.resetState()
+                    navController.navigate(Screen.EmployeeDashboard.route) {
+                        popUpTo(Screen.EmployeeLogin.route) { inclusive = true }
+                    }
+                } else {
+                    Toast.makeText(context, "Invalid credentials. Employee login only.", Toast.LENGTH_SHORT).show()
+                    viewModel.resetState()
+                }
+            }
+            is AuthState.Error -> {
+                Toast.makeText(context, (authState as AuthState.Error).message, Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+            }
+            else -> {}
+        }
+    }
 
     Scaffold(
         containerColor = accentColor,
@@ -79,7 +113,13 @@ fun EmployeeLoginScreen(navController: NavController) {
                     color = Color.White.copy(alpha = 0.9f)
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-                LoginFormCard(navController, accentColor, email, password, passwordVisible, onEmailChange = {email = it}, onPasswordChange = {password = it}, onPasswordVisibilityChange = {passwordVisible = it})
+                LoginFormCard(
+                    navController, accentColor, email, password, passwordVisible, authState,
+                    onEmailChange = { email = it },
+                    onPasswordChange = { password = it },
+                    onPasswordVisibilityChange = { passwordVisible = it },
+                    onLoginClick = { viewModel.signIn(email, password) }
+                )
             }
             Text(
                 text = "© 2025 Performance Tracker. All rights reserved.",
@@ -98,10 +138,14 @@ private fun LoginFormCard(
     email: String,
     pass: String,
     passVisible: Boolean,
+    authState: AuthState,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onPasswordVisibilityChange: (Boolean) -> Unit
+    onPasswordVisibilityChange: (Boolean) -> Unit,
+    onLoginClick: () -> Unit
 ) {
+    val context = LocalContext.current
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -119,11 +163,12 @@ private fun LoginFormCard(
             OutlinedTextField(
                 value = email,
                 onValueChange = onEmailChange,
-                label = { Text("Employee ID / Email") },
-                placeholder = {Text("EMP001 or employee@company.com")},
-                leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null) },
+                label = { Text("Email") },
+                placeholder = { Text("employee@company.com") },
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 shape = RoundedCornerShape(12.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -145,21 +190,27 @@ private fun LoginFormCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                 TextButton(onClick = { /* TODO */ }) {
-                    Text("Forgot Password?", color = accentColor)
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             Button(
-                onClick = { navController.navigate(Screen.EmployeeDashboard.route) },
+                onClick = {
+                    if (email.isNotEmpty() && pass.isNotEmpty()) {
+                        onLoginClick()
+                    } else {
+                        Toast.makeText(context, "Please enter email and password", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                enabled = authState !is AuthState.Loading
             ) {
-                Text("Sign In", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                if (authState is AuthState.Loading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Sign In", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
             }
         }
     }

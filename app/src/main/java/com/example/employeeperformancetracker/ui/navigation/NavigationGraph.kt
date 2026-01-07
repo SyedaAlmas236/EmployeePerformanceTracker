@@ -8,8 +8,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.employeeperformancetracker.ui.ForgotPasswordScreen
-import com.example.employeeperformancetracker.ui.SignupScreen
+import com.example.employeeperformancetracker.ui.signup.AdminSignupScreen
 import com.example.employeeperformancetracker.ui.addemployee.AddEmployeeScreen
+import com.example.employeeperformancetracker.ui.register_employee.RegisterEmployeeCredentialsScreen
 import com.example.employeeperformancetracker.ui.analytics.AnalyticsScreen
 import com.example.employeeperformancetracker.ui.assigntask.AssignTaskScreen
 import com.example.employeeperformancetracker.ui.attendance.AttendanceScreen
@@ -61,6 +62,9 @@ fun NavigationGraph(navController: NavHostController, drawerState: DrawerState) 
         composable(Screen.AddEmployee.route) {
             AddEmployeeScreen(navController = navController)
         }
+        composable(Screen.RegisterEmployeeCredentials.route) {
+            RegisterEmployeeCredentialsScreen(navController = navController)
+        }
         composable(Screen.TaskList.route) {
             TaskListScreen(navController = navController, drawerState = drawerState)
         }
@@ -92,7 +96,7 @@ fun NavigationGraph(navController: NavHostController, drawerState: DrawerState) 
             ReportsAndSettingsScreen(navController = navController)
         }
         composable(Screen.Signup.route) {
-            SignupScreen(navController = navController)
+            AdminSignupScreen(navController = navController)
         }
         composable(Screen.ForgotPassword.route) {
             ForgotPasswordScreen(navController = navController)

@@ -12,6 +12,7 @@ sealed class Screen(val route: String, val label: String = "", val icon: ImageVe
     object Dashboard : Screen("dashboard", "Dashboard", Icons.Default.Dashboard)
     object EmployeeList : Screen("employee_list", "Employees", Icons.Default.Groups)
     object AddEmployee : Screen("add_employee", "Add Employee")
+    object RegisterEmployeeCredentials : Screen("register_employee_credentials", "Register Employee Credentials")
     object EmployeeDetails : Screen("employee_details/{employeeId}", "Employee Details") {
         fun createRoute(employeeId: Int) = "employee_details/$employeeId"
     }
