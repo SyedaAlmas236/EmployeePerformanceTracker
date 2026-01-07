@@ -4,14 +4,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Apartment
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CoPresent
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Groups
@@ -26,6 +33,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -62,12 +70,28 @@ fun MainApp() {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Menu", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text("Smart Workforce Management", fontSize = 14.sp, color = Color.Gray)
+            ModalDrawerSheet(
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .background(Color(0xFF2A3A8D))
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Menu", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        IconButton(onClick = { scope.launch { drawerState.close() } }) {
+                           Icon(Icons.Default.Close, contentDescription = "Close Menu", tint = Color.White)
+                        }
+                    }
+                    Text("Smart Workforce Management", fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f))
                 }
-                Divider()
+                
                 NavigationDrawerItem(
                     label = { Text("Dashboard") },
                     selected = currentRoute == Screen.Dashboard.route,
@@ -75,7 +99,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Dashboard.route)
                     },
-                    icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") }
+                    icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                  NavigationDrawerItem(
                     label = { Text("Employees") },
@@ -84,7 +109,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.EmployeeList.route)
                     },
-                    icon = { Icon(Icons.Default.Groups, contentDescription = "Employees") }
+                    icon = { Icon(Icons.Default.Groups, contentDescription = "Employees") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                  NavigationDrawerItem(
                     label = { Text("Register Employee") },
@@ -102,7 +128,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.TaskList.route)
                      },
-                    icon = { Icon(Icons.Default.Task, contentDescription = "Tasks") }
+                    icon = { Icon(Icons.Default.Task, contentDescription = "Tasks") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                  NavigationDrawerItem(
                     label = { Text("Analytics") },
@@ -111,7 +138,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Analytics.route)
                      },
-                    icon = { Icon(Icons.Default.Analytics, contentDescription = "Analytics") }
+                    icon = { Icon(Icons.Default.Analytics, contentDescription = "Analytics") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 NavigationDrawerItem(
                     label = { Text("Attendance") },
@@ -120,7 +148,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Attendance.route)
                      },
-                    icon = { Icon(Icons.Default.CoPresent, contentDescription = "Attendance") }
+                    icon = { Icon(Icons.Default.CalendarToday, contentDescription = "Attendance") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 NavigationDrawerItem(
                     label = { Text("Payroll") },
@@ -129,7 +158,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Payroll.route)
                      },
-                    icon = { Icon(Icons.Default.Paid, contentDescription = "Payroll") }
+                    icon = { Icon(Icons.Default.Paid, contentDescription = "Payroll") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 NavigationDrawerItem(
                     label = { Text("Reimbursements") },
@@ -138,7 +168,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Reimbursements.route)
                      },
-                    icon = { Icon(Icons.Default.Paid, contentDescription = "Reimbursements") }
+                    icon = { Icon(Icons.Default.Paid, contentDescription = "Reimbursements") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 NavigationDrawerItem(
                     label = { Text("Meetings") },
@@ -147,7 +178,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.MeetingBooking.route)
                      },
-                    icon = { Icon(Icons.Default.People, contentDescription = "Meetings") }
+                    icon = { Icon(Icons.Default.People, contentDescription = "Meetings") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 NavigationDrawerItem(
                     label = { Text("Quick Links") },
@@ -156,7 +188,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.QuickLinks.route)
                      },
-                    icon = { Icon(Icons.Default.Task, contentDescription = "Quick Links") }
+                    icon = { Icon(Icons.Default.Task, contentDescription = "Quick Links") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                  NavigationDrawerItem(
                     label = { Text("Recruitment") },
@@ -165,7 +198,9 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         // navController.navigate(Screen.Recruitment.route)
                      },
-                    icon = { Icon(Icons.Default.Work, contentDescription = "Recruitment") }
+                    icon = { Icon(Icons.Default.Work, contentDescription = "Recruitment") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                    badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
                 )
                  NavigationDrawerItem(
                     label = { Text("Self Services") },
@@ -174,7 +209,9 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         // navController.navigate(Screen.SelfServices.route)
                      },
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Self Services") }
+                    icon = { Icon(Icons.Default.Person, contentDescription = "Self Services") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                    badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
                 )
                 NavigationDrawerItem(
                     label = { Text("Corporate Services") },
@@ -183,7 +220,9 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         // navController.navigate(Screen.CorporateServices.route)
                      },
-                    icon = { Icon(Icons.Default.Apartment, contentDescription = "Corporate Services") }
+                    icon = { Icon(Icons.Default.Apartment, contentDescription = "Corporate Services") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                    badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
                 )
                 Divider(modifier = Modifier.padding(vertical = 16.dp))
                  NavigationDrawerItem(
@@ -193,7 +232,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Settings.route)
                      },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 NavigationDrawerItem(
                     label = { Text("Logout") },
@@ -202,7 +242,8 @@ fun MainApp() {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Landing.route) { popUpTo(0) }
                      },
-                    icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout", tint = Color.Red) }
+                    icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout", tint = Color.Red) },
+                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
             }
         }
