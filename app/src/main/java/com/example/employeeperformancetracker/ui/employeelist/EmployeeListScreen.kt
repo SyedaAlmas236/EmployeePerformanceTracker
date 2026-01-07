@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -40,6 +42,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,13 +59,23 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployeeListScreen(navController: NavController, drawerState: DrawerState) {
+    val employees by EmployeeRepository.employees.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedDepartment by remember { mutableStateOf("All Departments") }
+
+    val filteredEmployees = employees.filter {
+        it.name.contains(searchQuery, ignoreCase = true) &&
+                (selectedDepartment == "All Departments" || it.department == selectedDepartment)
+    }
+
     Scaffold(
         topBar = { TopBar(navController) },
-        floatingActionButton = { Fab() },
+        floatingActionButton = { Fab(navController) },
         containerColor = Color(0xFFF2F4F7)
     ) { paddingValues ->
         Column(
@@ -70,9 +83,9 @@ fun EmployeeListScreen(navController: NavController, drawerState: DrawerState) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            SearchBar()
-            FilterBar()
-            EmployeeList(navController = navController)
+            SearchBar(searchQuery) { searchQuery = it }
+            FilterBar(filteredEmployees.size, selectedDepartment) { selectedDepartment = it }
+            EmployeeList(navController = navController, employees = filteredEmployees)
         }
     }
 }
@@ -93,11 +106,10 @@ private fun TopBar(navController: NavController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchBar() {
-    var searchQuery by remember { mutableStateOf("") }
+private fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
     OutlinedTextField(
-        value = searchQuery,
-        onValueChange = { searchQuery = it },
+        value = query,
+        onValueChange = onQueryChange,
         placeholder = { Text("Search employees...") },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         modifier = Modifier
@@ -115,7 +127,10 @@ private fun SearchBar() {
 }
 
 @Composable
-private fun FilterBar() {
+private fun FilterBar(employeeCount: Int, selectedDepartment: String, onDepartmentSelected: (String) -> Unit) {
+    var showMenu by remember { mutableStateOf(false) }
+    val departments = listOf("All Departments", "Engineering", "Design", "Management", "Marketing", "Sales", "Analytics")
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -123,18 +138,24 @@ private fun FilterBar() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = "6 total", color = Color.Gray, fontSize = 14.sp)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "All Departments", fontWeight = FontWeight.SemiBold)
+        Text(text = "$employeeCount total", color = Color.Gray, fontSize = 14.sp)
+        Box {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { showMenu = true }) {
+                Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = selectedDepartment, fontWeight = FontWeight.SemiBold)
+            }
+            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                departments.forEach { department ->
+                    DropdownMenuItem(text = { Text(department) }, onClick = { onDepartmentSelected(department); showMenu = false })
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun EmployeeList(navController: NavController) {
-    val employees = EmployeeRepository.getEmployees()
+private fun EmployeeList(navController: NavController, employees: List<Employee>) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -218,9 +239,9 @@ private fun RatingBadge(rating: Float) {
 }
 
 @Composable
-private fun Fab() {
+private fun Fab(navController: NavController) {
     FloatingActionButton(
-        onClick = { /* TODO */ },
+        onClick = { navController.navigate(Screen.AddEmployee.route) },
         containerColor = MaterialTheme.colorScheme.primary,
         shape = CircleShape
     ) {
