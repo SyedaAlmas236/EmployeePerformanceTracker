@@ -5,6 +5,7 @@ import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import com.example.employeeperformancetracker.data.SupabaseConfig
+import com.example.employeeperformancetracker.data.Admin
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -33,14 +34,24 @@ class AuthRepository {
                 }
             }
 
-            // Create profile with role='admin'
+            // Create profile and admin record
             if (user != null) {
+                // Profile table
                 supabase.from("profiles").upsert(
                     buildJsonObject {
                         put("id", user.id)
                         put("email", email)
+                        put("full_name", name)
                         put("role", "admin")
                     }
+                )
+                // Admins table
+                supabase.from("admins").insert(
+                    Admin(
+                        userId = user.id,
+                        name = name,
+                        companyName = companyName
+                    )
                 )
                 Result.success(Unit)
             } else {
@@ -79,7 +90,7 @@ class AuthRepository {
     }
 
     // Register employee credentials (admin only)
-    suspend fun registerEmployeeCredentials(email: String, password: String): Result<Unit> {
+    suspend fun registerEmployeeCredentials(employeeInternalId: String, email: String, password: String): Result<Unit> {
         return try {
             // Create auth user for employee
             val user = supabase.auth.signUpWith(Email) {
@@ -90,7 +101,7 @@ class AuthRepository {
                 }
             }
 
-            // Create profile with role='employee'
+            // Create profile with role='employee' and link to employee table
             if (user != null) {
                 supabase.from("profiles").upsert(
                     buildJsonObject {
@@ -99,6 +110,18 @@ class AuthRepository {
                         put("role", "employee")
                     }
                 )
+                
+                // Link the new Auth ID to the existing employee record
+                supabase.from("employees").update(
+                    buildJsonObject {
+                        put("user_id", user.id)
+                    }
+                ) {
+                    filter {
+                        eq("id", employeeInternalId)
+                    }
+                }
+                
                 Result.success(Unit)
             } else {
                 Result.failure(Exception("Employee credentials created but user data not received. Please check if email confirmation is required."))

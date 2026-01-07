@@ -1,28 +1,85 @@
 package com.example.employeeperformancetracker.data
 
-import com.example.employeeperformancetracker.R
+import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 object EmployeeRepository {
-    private val _employees = MutableStateFlow(listOf(
-        Employee("EMP001", "Sarah Mitchell", "Senior Developer", "Engineering", 4.9f, R.drawable.sarah_employee_pfp),
-        Employee("EMP002", "John Anderson", "Project Manager", "Management", 4.8f, R.drawable.ic_launcher_background),
-        Employee("EMP003", "Emily Chen", "UX Designer", "Design", 4.7f, R.drawable.ic_launcher_background),
-        Employee("EMP004", "Michael Roberts", "Backend Developer", "Engineering", 4.6f, R.drawable.ic_launcher_background),
-        Employee("EMP005", "Lisa Wang", "Marketing Manager", "Marketing", 4.5f, R.drawable.ic_launcher_background),
-        Employee("EMP006", "David Kim", "Data Analyst", "Analytics", 4.4f, R.drawable.ic_launcher_background)
-    ))
-
+    private val supabase = SupabaseConfig.client
+    private val _employees = MutableStateFlow<List<Employee>>(emptyList())
     val employees = _employees.asStateFlow()
 
-    fun getEmployees(): List<Employee> = _employees.value
+    suspend fun fetchEmployees(): Result<List<Employee>> {
+        return try {
+            val employeeList = supabase.from("employees").select().decodeList<Employee>()
+            _employees.value = employeeList
+            Result.success(employeeList)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getUnregisteredEmployees(): List<Employee> {
+        return try {
+            supabase.from("employees").select {
+                filter {
+                    exact("user_id", null)
+                }
+            }.decodeList<Employee>()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun addEmployee(employee: Employee): Result<Unit> {
+        return try {
+            supabase.from("employees").insert(employee)
+            fetchEmployees() // Refresh local state
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     fun getEmployeeByName(name: String?): Employee? = _employees.value.find { it.name == name }
+    
+    fun getEmployees(): List<Employee> = _employees.value
 
-    fun addEmployee(employee: Employee) {
-        val currentList = _employees.value.toMutableList()
-        currentList.add(employee)
-        _employees.value = currentList
+    suspend fun getEmployeeById(id: String): Employee? {
+        return try {
+            supabase.from("employees").select {
+                filter {
+                    eq("id", id)
+                }
+            }.decodeSingleOrNull<Employee>()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun updateEmployee(employee: Employee): Result<Unit> {
+        return try {
+            supabase.from("employees").update(employee) {
+                filter {
+                    eq("id", employee.id ?: "")
+                }
+            }
+            fetchEmployees() // Refresh local state
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getEmployeeByAuthId(userId: String): Employee? {
+        return try {
+            supabase.from("employees").select {
+                filter {
+                    eq("user_id", userId)
+                }
+            }.decodeSingleOrNull<Employee>()
+        } catch (e: Exception) {
+            null
+        }
     }
 }

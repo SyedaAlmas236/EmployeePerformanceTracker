@@ -25,14 +25,31 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.employeeperformancetracker.data.Employee
+import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.employee_dashboard.BottomNavigationBar
 import com.example.employeeperformancetracker.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmployeeSelfProfileScreen(navController: NavController) {
+fun EmployeeSelfProfileScreen(
+    navController: NavController,
+    authViewModel: AuthViewModel = viewModel()
+) {
     var showPasswordDialog by remember { mutableStateOf(false) }
+    var employee by remember { mutableStateOf<Employee?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val currentUser = authViewModel.getCurrentUser()
+        if (currentUser != null) {
+            employee = EmployeeRepository.getEmployeeByAuthId(currentUser.id)
+        }
+        isLoading = false
+    }
 
     Scaffold(
         topBar = {
@@ -53,19 +70,25 @@ fun EmployeeSelfProfileScreen(navController: NavController) {
         },
         bottomBar = { BottomNavigationBar(navController = navController) }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .background(Color(0xFFFAFAFA))
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            ProfileHeaderCard()
-            PersonalInformationCard()
-            AccountActionsCard(navController) { showPasswordDialog = true }
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF43A047))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .background(Color(0xFFFAFAFA))
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ProfileHeaderCard(employee)
+                PersonalInformationCard(employee)
+                AccountActionsCard(navController) { showPasswordDialog = true }
+            }
         }
 
         if (showPasswordDialog) {
@@ -75,7 +98,7 @@ fun EmployeeSelfProfileScreen(navController: NavController) {
 }
 
 @Composable
-fun ProfileHeaderCard() {
+fun ProfileHeaderCard(employee: Employee?) {
     val accentColor = Color(0xFF43A047)
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -97,7 +120,12 @@ fun ProfileHeaderCard() {
                         .background(accentColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("SJ", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 32.sp)
+                    Text(
+                        text = (employee?.name?.take(2)?.uppercase() ?: "??"),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 32.sp
+                    )
                 }
                 Icon(
                     imageVector = Icons.Default.Edit,
@@ -110,18 +138,18 @@ fun ProfileHeaderCard() {
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Sarah Johnson", fontWeight = FontWeight.Bold, fontSize = 22.sp)
-            Text("Senior Software Engineer", color = Color.Gray)
+            Text(employee?.name ?: "Loading...", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+            Text(employee?.position ?: "No Position", color = Color.Gray)
         }
     }
 }
 
 @Composable
-fun PersonalInformationCard() {
+fun PersonalInformationCard(employee: Employee?) {
     var isEditing by remember { mutableStateOf(false) }
-    var fullName by rememberSaveable { mutableStateOf("Sarah Johnson") }
-    var email by rememberSaveable { mutableStateOf("sarah.johnson@company.com") }
-    var phone by rememberSaveable { mutableStateOf("+1 (555) 123-4567") }
+    var fullName by rememberSaveable(employee) { mutableStateOf(employee?.name ?: "") }
+    var email by rememberSaveable(employee) { mutableStateOf(employee?.email ?: "") }
+    var phone by rememberSaveable(employee) { mutableStateOf(employee?.phoneNumber ?: "") }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -141,10 +169,10 @@ fun PersonalInformationCard() {
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            InfoRow(icon = Icons.Default.Badge, label = "Employee ID", value = "EMP001", isEditing = false)
+            InfoRow(icon = Icons.Default.Badge, label = "Employee ID", value = employee?.employeeId ?: "N/A", isEditing = false)
             InfoRow(icon = Icons.Default.Person, label = "Full Name", value = fullName, isEditing = isEditing, onValueChange = { fullName = it })
-            InfoRow(icon = Icons.Default.Work, label = "Role", value = "Senior Software Engineer", isEditing = false)
-            InfoRow(icon = Icons.Default.Apartment, label = "Department", value = "Engineering", isEditing = false)
+            InfoRow(icon = Icons.Default.Work, label = "Role", value = employee?.position ?: "N/A", isEditing = false)
+            InfoRow(icon = Icons.Default.Apartment, label = "Department", value = employee?.department ?: "N/A", isEditing = false)
             InfoRow(icon = Icons.Default.Email, label = "Email", value = email, isEditing = isEditing, onValueChange = { email = it })
             InfoRow(icon = Icons.Default.Phone, label = "Phone", value = phone, isEditing = isEditing, onValueChange = { phone = it })
         }

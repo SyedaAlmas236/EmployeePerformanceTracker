@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Menu
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,6 +42,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import coil.compose.AsyncImage
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -57,17 +60,40 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.employeeperformancetracker.R
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.Task
+import com.example.employeeperformancetracker.data.TaskRepository
 import com.example.employeeperformancetracker.ui.navigation.Screen
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
     val scope = rememberCoroutineScope()
+    var employees by remember { mutableStateOf<List<Employee>>(emptyList()) }
+    var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        employees = EmployeeRepository.getEmployees()
+        if (employees.isEmpty()) {
+            EmployeeRepository.fetchEmployees()
+            employees = EmployeeRepository.getEmployees()
+        }
+        tasks = TaskRepository.getTasks()
+        isLoading = false
+    }
+
     Scaffold(
         bottomBar = { BottomNavigationBar(navController = navController) },
         containerColor = Color(0xFFF2F4F7)
     ) { paddingValues ->
+        if (isLoading) {
+             androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(paddingValues))
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -75,8 +101,8 @@ fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
                 .verticalScroll(rememberScrollState())
         ) {
             Header(scope, drawerState)
-            KPISection()
-            TopPerformersSection(navController)
+            KPISection(employees, tasks)
+            TopPerformersSection(navController, employees)
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = { navController.navigate(Screen.Analytics.route) },
@@ -143,16 +169,28 @@ private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: Drawer
 }
 
 @Composable
-private fun KPISection() {
+private fun KPISection(employees: List<Employee>, tasks: List<Task>) {
+    val totalEmployees = employees.size
+    val pendingTasks = tasks.count { it.status?.lowercase() == "pending" }
+    
+    // Calculate average rating safely
+    val avgRating = if (employees.isNotEmpty()) {
+        val ratings = employees.mapNotNull { it.rating }
+        if (ratings.isNotEmpty()) "%.1f".format(ratings.average()) else "0.0"
+    } else "0.0"
+
+    // Find top performer safely
+    val topPerformer = employees.maxByOrNull { it.rating ?: 0f }?.name ?: "N/A"
+
     Column(modifier = Modifier.padding(16.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            KPICard(modifier = Modifier.weight(1f), title = "Total Employees", value = "124", icon = Icons.Default.Groups, iconColor = Color(0xFF3949AB))
-            KPICard(modifier = Modifier.weight(1f), title = "Tasks Pending", value = "37", icon = Icons.Default.PendingActions, iconColor = Color(0xFFF57C00))
+            KPICard(modifier = Modifier.weight(1f), title = "Total Employees", value = totalEmployees.toString(), icon = Icons.Default.Groups, iconColor = Color(0xFF3949AB))
+            KPICard(modifier = Modifier.weight(1f), title = "Tasks Pending", value = pendingTasks.toString(), icon = Icons.Default.PendingActions, iconColor = Color(0xFFF57C00))
         }
         Spacer(modifier = Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            KPICard(modifier = Modifier.weight(1f), title = "Average Rating", value = "4.2", icon = Icons.Default.Star, iconColor = Color(0xFF4CAF50))
-            KPICard(modifier = Modifier.weight(1f), title = "Top Performer", value = "Sarah M.", icon = Icons.Default.TrendingUp, iconColor = Color(0xFFD32F2F))
+            KPICard(modifier = Modifier.weight(1f), title = "Average Rating", value = avgRating, icon = Icons.Default.Star, iconColor = Color(0xFF4CAF50))
+            KPICard(modifier = Modifier.weight(1f), title = "Top Performer", value = topPerformer, icon = Icons.Default.TrendingUp, iconColor = Color(0xFFD32F2F))
         }
     }
 }
@@ -175,8 +213,10 @@ private fun KPICard(modifier: Modifier = Modifier, title: String, value: String,
 }
 
 @Composable
-private fun TopPerformersSection(navController: NavController) {
-    val topPerformers = EmployeeRepository.getEmployees().sortedByDescending { it.rating }.take(3)
+private fun TopPerformersSection(navController: NavController, employees: List<Employee>) {
+    val topPerformers = employees
+        .sortedByDescending { it.rating ?: 0f }
+        .take(3)
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -211,8 +251,8 @@ private fun PerformerCard(employee: Employee, rank: Int, navController: NavContr
                 Text(text = "#$rank", fontWeight = FontWeight.Bold, color = Color(0xFF3949AB))
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Image(
-                painter = painterResource(id = employee.imageRes),
+            AsyncImage(
+                model = employee.profileImageUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.name}",
                 contentDescription = employee.name,
                 modifier = Modifier
                     .size(48.dp)
@@ -222,9 +262,9 @@ private fun PerformerCard(employee: Employee, rank: Int, navController: NavContr
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = employee.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(text = employee.role, color = Color.Gray, fontSize = 14.sp)
+                Text(text = employee.position ?: "No position", color = Color.Gray, fontSize = 14.sp)
             }
-            RatingBadge(rating = employee.rating)
+            RatingBadge(rating = employee.rating ?: 0f)
         }
     }
 }

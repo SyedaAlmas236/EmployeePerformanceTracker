@@ -1,6 +1,5 @@
 package com.example.employeeperformancetracker.ui.employeelist
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +26,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -41,22 +41,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
 import com.example.employeeperformancetracker.ui.navigation.Screen
@@ -67,6 +62,13 @@ fun EmployeeListScreen(navController: NavController, drawerState: DrawerState) {
     val employees by EmployeeRepository.employees.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedDepartment by remember { mutableStateOf("All Departments") }
+    var isLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        EmployeeRepository.fetchEmployees()
+        isLoading = false
+    }
 
     val filteredEmployees = employees.filter {
         it.name.contains(searchQuery, ignoreCase = true) &&
@@ -85,7 +87,14 @@ fun EmployeeListScreen(navController: NavController, drawerState: DrawerState) {
         ) {
             SearchBar(searchQuery) { searchQuery = it }
             FilterBar(filteredEmployees.size, selectedDepartment) { selectedDepartment = it }
-            EmployeeList(navController = navController, employees = filteredEmployees)
+            
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                EmployeeList(navController = navController, employees = filteredEmployees)
+            }
         }
     }
 }
@@ -180,8 +189,8 @@ private fun EmployeeCard(employee: Employee, onClick: () -> Unit) {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
-                painter = painterResource(id = employee.imageRes),
+            AsyncImage(
+                model = employee.profileImageUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.name}",
                 contentDescription = employee.name,
                 modifier = Modifier
                     .size(48.dp)
@@ -191,11 +200,11 @@ private fun EmployeeCard(employee: Employee, onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = employee.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(text = employee.role, color = Color.Gray, fontSize = 14.sp)
+                Text(text = employee.position ?: "No position", color = Color.Gray, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(4.dp))
-                DepartmentChip(department = employee.department)
+                DepartmentChip(department = employee.department ?: "General")
             }
-            RatingBadge(rating = employee.rating)
+            RatingBadge(rating = employee.rating ?: 0f)
         }
     }
 }
@@ -233,7 +242,7 @@ private fun RatingBadge(rating: Float) {
         Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Star, contentDescription = "Rating", tint = Color.White, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text = rating.toString(), color = Color.White, fontWeight = FontWeight.Bold)
+            Text(text = String.format("%.1f", rating), color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }

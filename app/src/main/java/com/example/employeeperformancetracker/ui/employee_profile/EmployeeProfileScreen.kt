@@ -43,6 +43,11 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.employeeperformancetracker.R
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.Task
+import com.example.employeeperformancetracker.data.TaskRepository
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 private val PrimaryBlue = Color(0xFF3949AB)
 private val BackgroundGray = Color(0xFFF8F9FA)
@@ -54,15 +59,36 @@ private val RedColor = Color(0xFFD32F2F)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployeeProfileScreen(navController: NavController, employeeName: String?) {
-    val employee = EmployeeRepository.getEmployeeByName(employeeName)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var employee by remember { mutableStateOf(EmployeeRepository.getEmployeeByName(employeeName)) }
+    var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     var showEditSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(employeeName) {
+        isLoading = true
+        // Ensure employees are fetched
+        if (EmployeeRepository.getEmployees().isEmpty()) {
+            EmployeeRepository.fetchEmployees()
+        }
+        employee = EmployeeRepository.getEmployeeByName(employeeName)
+        
+        // Fetch tasks
+        tasks = TaskRepository.getTasks().filter { it.assignedTo == employee?.id || it.assignedTo == employee?.userId }
+        isLoading = false
+    }
 
     Scaffold(
         topBar = { TopAppBar(navController, onEditClick = { showEditSheet = true }) },
         containerColor = BackgroundGray
     ) { paddingValues ->
-        if (employee != null) {
-            var currentEmployee by remember { mutableStateOf(employee) }
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (employee != null) {
+            val currentEmployee = employee!!
             var employeeImageUri by remember { mutableStateOf<Uri?>(null) }
 
             if (showEditSheet) {
@@ -71,9 +97,17 @@ fun EmployeeProfileScreen(navController: NavController, employeeName: String?) {
                     imageUri = employeeImageUri,
                     onDismiss = { showEditSheet = false },
                     onUpdate = { updatedEmployee, newImageUri ->
-                        currentEmployee = updatedEmployee
-                        employeeImageUri = newImageUri
-                        showEditSheet = false
+                        scope.launch {
+                            val result = EmployeeRepository.updateEmployee(updatedEmployee)
+                            if (result.isSuccess) {
+                                employee = updatedEmployee
+                                employeeImageUri = newImageUri
+                                Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Failed to update profile", Toast.LENGTH_SHORT).show()
+                            }
+                            showEditSheet = false
+                        }
                     }
                 )
             }
@@ -85,7 +119,7 @@ fun EmployeeProfileScreen(navController: NavController, employeeName: String?) {
                     .verticalScroll(rememberScrollState())
             ) {
                 ProfileHeader(currentEmployee, employeeImageUri)
-                ProfileTabs(currentEmployee)
+                ProfileTabs(currentEmployee, tasks)
             }
         } else {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
@@ -125,10 +159,10 @@ private fun EditProfileSheet(
     val sheetState = rememberModalBottomSheetState()
     var currentImageUri by remember { mutableStateOf(imageUri) }
     var fullName by rememberSaveable { mutableStateOf(employee.name) }
-    var email by rememberSaveable { mutableStateOf("${employee.name.replace(" ", ".").lowercase()}@company.com") }
-    var phone by rememberSaveable { mutableStateOf("+1 234 567 8900") }
-    var department by rememberSaveable { mutableStateOf(employee.department) }
-    var role by rememberSaveable { mutableStateOf(employee.role) }
+    var email by rememberSaveable { mutableStateOf(employee.email) }
+    var phone by rememberSaveable { mutableStateOf(employee.phoneNumber ?: "") }
+    var department by rememberSaveable { mutableStateOf(employee.department ?: "") }
+    var position by rememberSaveable { mutableStateOf(employee.position ?: "") }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -167,8 +201,13 @@ private fun EditProfileSheet(
                         .clickable { imagePickerLauncher.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
+                    val painter = if (currentImageUri != null) {
+                        rememberAsyncImagePainter(currentImageUri)
+                    } else {
+                        rememberAsyncImagePainter(employee.profileImageUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.name}")
+                    }
                     Image(
-                        painter = if (currentImageUri != null) rememberAsyncImagePainter(currentImageUri) else painterResource(id = employee.imageRes),
+                        painter = painter,
                         contentDescription = "Profile Image",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -195,12 +234,12 @@ private fun EditProfileSheet(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = employee.id,
+                    value = employee.employeeId ?: "",
                     onValueChange = {},
                     label = { Text("Employee ID *") },
                     modifier = Modifier.fillMaxWidth(),
                     readOnly = true,
-                    colors = TextFieldDefaults.colors(disabledTextColor = Color.Gray)
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.Gray, unfocusedTextColor = Color.Gray)
                 )
 
                 var departmentExpanded by remember { mutableStateOf(false) }
@@ -213,7 +252,7 @@ private fun EditProfileSheet(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = departmentExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                     )
                     ExposedDropdownMenu(expanded = departmentExpanded, onDismissRequest = { departmentExpanded = false }) {
                         listOf("Engineering", "Management", "Design", "Marketing", "Analytics").forEach {
@@ -225,36 +264,36 @@ private fun EditProfileSheet(
                     }
                 }
                 
-                var roleExpanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(expanded = roleExpanded, onExpandedChange = { roleExpanded = !roleExpanded }) {
+                var positionExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(expanded = positionExpanded, onExpandedChange = { positionExpanded = !positionExpanded }) {
                     OutlinedTextField(
-                        value = role,
+                        value = position,
                         onValueChange = {},
                         label = { Text("Role/Position *") },
                         readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = positionExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                     )
-                    ExposedDropdownMenu(expanded = roleExpanded, onDismissRequest = { roleExpanded = false }) {
+                    ExposedDropdownMenu(expanded = positionExpanded, onDismissRequest = { positionExpanded = false }) {
                          listOf("Senior Developer", "Project Manager", "UX Designer", "Backend Developer", "Marketing Manager", "Data Analyst").forEach {
                             DropdownMenuItem(text = { Text(it) }, onClick = {
-                                role = it
-                                roleExpanded = false
+                                position = it
+                                positionExpanded = false
                             })
                         }
                     }
                 }
 
                 OutlinedTextField(
-                    value = "15-01-2022",
+                    value = employee.joiningDate ?: "",
                     onValueChange = {}, 
                     label = { Text("Joining Date *") },
                     modifier = Modifier.fillMaxWidth(),
                     readOnly = true, 
                     trailingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                    colors = TextFieldDefaults.colors(disabledTextColor = Color.Gray)
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.Gray, unfocusedTextColor = Color.Gray)
                 )
                 OutlinedTextField(
                     value = email,
@@ -277,7 +316,7 @@ private fun EditProfileSheet(
                 }
                 Button(
                     onClick = {
-                        val updatedEmployee = employee.copy(name = fullName, role = role, department = department)
+                        val updatedEmployee = employee.copy(name = fullName, position = position, department = department, email = email, phoneNumber = phone)
                         onUpdate(updatedEmployee, currentImageUri)
                     },
                     modifier = Modifier.weight(1f),
@@ -299,8 +338,13 @@ private fun ProfileHeader(employee: Employee, imageUri: Uri?) {
             .padding(vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        val painter = if (imageUri != null) {
+            rememberAsyncImagePainter(imageUri)
+        } else {
+            rememberAsyncImagePainter(employee.profileImageUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.name}")
+        }
         Image(
-            painter = if (imageUri != null) rememberAsyncImagePainter(imageUri) else painterResource(id = employee.imageRes),
+            painter = painter,
             contentDescription = employee.name,
             modifier = Modifier
                 .size(120.dp)
@@ -309,7 +353,7 @@ private fun ProfileHeader(employee: Employee, imageUri: Uri?) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(employee.name, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(employee.role, color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp)
+        Text(employee.position ?: "No Position", color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp)
         Spacer(modifier = Modifier.height(8.dp))
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -318,14 +362,14 @@ private fun ProfileHeader(employee: Employee, imageUri: Uri?) {
             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Star, contentDescription = "Rating", tint = GoldColor, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("${employee.rating} Rating", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("${employee.rating ?: 0f} Rating", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
 @Composable
-private fun ProfileTabs(employee: Employee) {
+private fun ProfileTabs(employee: Employee, tasks: List<Task>) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Profile", "Tasks", "Performance")
 
@@ -357,7 +401,7 @@ private fun ProfileTabs(employee: Employee) {
 
         when (selectedTabIndex) {
             0 -> ProfileInfoSection(employee)
-            1 -> TasksSection()
+            1 -> TasksSection(tasks)
             2 -> PerformanceSection()
         }
     }
@@ -376,28 +420,39 @@ private fun ProfileInfoSection(employee: Employee) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
-            InfoRow(icon = Icons.Default.Badge, label = "Employee ID", value = employee.id)
+            InfoRow(icon = Icons.Default.Badge, label = "Employee ID", value = employee.employeeId ?: "")
             Divider(modifier = Modifier.padding(horizontal = 16.dp))
-            InfoRow(icon = Icons.Default.Email, label = "Email", value = email)
+            InfoRow(icon = Icons.Default.Email, label = "Email", value = employee.email)
             Divider(modifier = Modifier.padding(horizontal = 16.dp))
-            InfoRow(icon = Icons.Default.Phone, label = "Phone", value = phone)
+            InfoRow(icon = Icons.Default.Phone, label = "Phone", value = employee.phoneNumber ?: "")
             Divider(modifier = Modifier.padding(horizontal = 16.dp))
-            InfoRow(icon = Icons.Default.DateRange, label = "Joining Date", value = "Jan 15, 2022")
+            InfoRow(icon = Icons.Default.DateRange, label = "Joining Date", value = employee.joiningDate ?: "")
             Divider(modifier = Modifier.padding(horizontal = 16.dp))
-            DepartmentInfoRow(department = employee.department)
+            DepartmentInfoRow(department = employee.department ?: "")
         }
     }
 }
 
 @Composable
-private fun TasksSection() {
+private fun TasksSection(tasks: List<Task>) {
     Column(
         modifier = Modifier.padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        TaskCard("Implement authentication module", "Nov 18, 2025", "High", "In Progress")
-        TaskCard("Code review for dashboard", "Nov 20, 2025", "Medium", "Completed")
-        TaskCard("Fix payment gateway bugs", "Nov 22, 2025", "High", "Pending")
+        if (tasks.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                Text("No tasks assigned.", color = Color.Gray)
+            }
+        } else {
+            tasks.forEach { task ->
+                TaskCard(
+                    title = task.title,
+                    date = task.deadline ?: "No deadline",
+                    priority = task.priority ?: "Low",
+                    status = task.status ?: "Pending"
+                )
+            }
+        }
     }
 }
 

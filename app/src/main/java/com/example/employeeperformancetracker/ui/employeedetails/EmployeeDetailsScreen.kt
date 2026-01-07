@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -25,9 +26,15 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.employeeperformancetracker.R
+import com.example.employeeperformancetracker.data.Employee
+import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.Task
+import com.example.employeeperformancetracker.data.TaskRepository
 import com.example.employeeperformancetracker.ui.common.InfoRow
 import com.example.employeeperformancetracker.ui.navigation.Screen
 import com.example.employeeperformancetracker.ui.theme.EmployeePerformanceTrackerTheme
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 
 private val PrimaryBlue = Color(0xFF3949AB)
 private val Green = Color(0xFF43A047)
@@ -35,7 +42,7 @@ private val BackgroundGray = Color(0xFFFAFAFA)
 
 data class EmployeeDetails(
     val name: String,
-    val role: String,
+    val position: String,
     val department: String,
     val joiningDate: String,
     val email: String,
@@ -46,7 +53,7 @@ data class EmployeeDetails(
 
 val employeeDetails = EmployeeDetails(
     name = "Sarah Mitchell",
-    role = "Senior Developer",
+    position = "Senior Developer",
     department = "Engineering",
     joiningDate = "Jan 15, 2022",
     email = "sarah.mitchell@example.com",
@@ -57,16 +64,27 @@ val employeeDetails = EmployeeDetails(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmployeeDetailsScreen(navController: NavController, employeeId: Int?) {
-    // In a real app, you would use employeeId to fetch details
-    val employee = employeeDetails
+fun EmployeeDetailsScreen(navController: NavController, employeeName: String?) {
+    var employee by remember { mutableStateOf<Employee?>(null) }
+    var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(employeeName) {
+        isLoading = true
+        if (EmployeeRepository.getEmployees().isEmpty()) {
+            EmployeeRepository.fetchEmployees()
+        }
+        employee = EmployeeRepository.getEmployeeByName(employeeName)
+        tasks = TaskRepository.getTasks().filter { it.assignedTo == employee?.id || it.assignedTo == employee?.userId }
+        isLoading = false
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Employee Details") },
                 navigationIcon = { IconButton(onClick = { navController.navigateUp() }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 } },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = PrimaryBlue,
@@ -77,19 +95,29 @@ fun EmployeeDetailsScreen(navController: NavController, employeeId: Int?) {
         },
         containerColor = BackgroundGray
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-        ) {
-            ProfileHeaderCard(employee = employee)
-            DetailsTabs(navController, employee)
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (employee != null) {
+            Column(
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                ProfileHeaderCard(employee = employee!!)
+                DetailsTabs(navController, employee!!, tasks)
+            }
+        } else {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                Text("Employee not found.")
+            }
         }
     }
 }
 
 @Composable
-fun ProfileHeaderCard(employee: EmployeeDetails) {
+fun ProfileHeaderCard(employee: Employee) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -103,8 +131,8 @@ fun ProfileHeaderCard(employee: EmployeeDetails) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Image(
-                painter = painterResource(id = employee.imageId),
+            AsyncImage(
+                model = employee.profileImageUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.name}",
                 contentDescription = "Profile Image",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -112,11 +140,11 @@ fun ProfileHeaderCard(employee: EmployeeDetails) {
                     .clip(CircleShape)
             )
             Text(employee.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text(employee.role, fontSize = 16.sp, color = Color.Gray)
-            Text(employee.department, fontSize = 14.sp, color = Color.Gray)
-            Text("Joined: ${employee.joiningDate}", fontSize = 14.sp, color = Color.Gray)
+            Text(employee.position ?: "No Position", fontSize = 16.sp, color = Color.Gray)
+            Text(employee.department ?: "No Department", fontSize = 14.sp, color = Color.Gray)
+            Text("Joined: ${employee.joiningDate ?: "N/A"}", fontSize = 14.sp, color = Color.Gray)
             Spacer(modifier = Modifier.height(8.dp))
-            RatingBadge(rating = employee.rating)
+            RatingBadge(rating = (employee.rating ?: 0f).toDouble())
         }
     }
 }
@@ -149,7 +177,7 @@ fun RatingBadge(rating: Double) {
 }
 
 @Composable
-fun DetailsTabs(navController: NavController, employee: EmployeeDetails) {
+fun DetailsTabs(navController: NavController, employee: Employee, tasks: List<Task>) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Profile", "Tasks", "Performance")
 
@@ -161,7 +189,7 @@ fun DetailsTabs(navController: NavController, employee: EmployeeDetails) {
             edgePadding = 16.dp,
             indicator = { tabPositions ->
                 if (selectedTabIndex < tabPositions.size) {
-                    TabRowDefaults.Indicator(
+                    TabRowDefaults.SecondaryIndicator(
                         modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
                         color = PrimaryBlue,
                         height = 3.dp
@@ -182,14 +210,14 @@ fun DetailsTabs(navController: NavController, employee: EmployeeDetails) {
 
         when (selectedTabIndex) {
             0 -> ProfileTabContent(employee = employee)
-            1 -> TasksTabContent() // Placeholder
+            1 -> TasksTabContent(tasks)
             2 -> PerformanceTabContent(navController)
         }
     }
 }
 
 @Composable
-fun ProfileTabContent(employee: EmployeeDetails) {
+fun ProfileTabContent(employee: Employee) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -198,22 +226,50 @@ fun ProfileTabContent(employee: EmployeeDetails) {
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            InfoRow(icon = Icons.Default.Business, label = "Department", value = employee.department)
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            InfoRow(icon = Icons.Default.Business, label = "Department", value = employee.department ?: "N/A")
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             InfoRow(icon = Icons.Default.Email, label = "Email", value = employee.email)
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-            InfoRow(icon = Icons.Default.Phone, label = "Phone", value = employee.phone)
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-            InfoRow(icon = Icons.Default.DateRange, label = "Joining Date", value = employee.joiningDate)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            InfoRow(icon = Icons.Default.Phone, label = "Phone", value = employee.phoneNumber ?: "N/A")
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            InfoRow(icon = Icons.Default.DateRange, label = "Joining Date", value = employee.joiningDate ?: "N/A")
         }
     }
 }
 
 
 @Composable
-fun TasksTabContent() {
-    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-        Text("Tasks content goes here")
+fun TasksTabContent(tasks: List<Task>) {
+    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (tasks.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                Text("No tasks assigned.", color = Color.Gray)
+            }
+        } else {
+            tasks.forEach { task ->
+                TaskCard(task)
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskCard(task: Task) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(task.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            task.description?.let { Text(it, fontSize = 14.sp, color = Color.Gray) }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Status: ${task.status}", fontSize = 12.sp, color = PrimaryBlue)
+                Text("Priority: ${task.priority}", fontSize = 12.sp, color = Color.Red)
+            }
+        }
     }
 }
 
@@ -231,6 +287,6 @@ fun PerformanceTabContent(navController: NavController) {
 @Composable
 fun EmployeeDetailsScreenPreview() {
     EmployeePerformanceTrackerTheme {
-        EmployeeDetailsScreen(rememberNavController(), employeeId = 1)
+        EmployeeDetailsScreen(rememberNavController(), employeeName = "Sarah Mitchell")
     }
 }

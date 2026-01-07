@@ -48,10 +48,10 @@ class AuthViewModel : ViewModel() {
     }
 
     // Register Employee Credentials (Admin only)
-    fun registerEmployeeCredentials(email: String, password: String) {
+    fun registerEmployeeCredentials(employeeInternalId: String, email: String, password: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            val result = authRepository.registerEmployeeCredentials(email, password)
+            val result = authRepository.registerEmployeeCredentials(employeeInternalId, email, password)
             _authState.value = if (result.isSuccess) {
                 AuthState.Success("employee_created")
             } else {
@@ -75,4 +75,7 @@ class AuthViewModel : ViewModel() {
 
     // Check if logged in
     fun isLoggedIn() = authRepository.isLoggedIn()
+
+    // Get current user
+    fun getCurrentUser() = authRepository.getCurrentUser()
 }

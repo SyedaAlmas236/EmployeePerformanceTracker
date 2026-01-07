@@ -18,8 +18,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Button
@@ -33,6 +33,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -48,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,6 +57,9 @@ import androidx.navigation.NavController
 import com.example.employeeperformancetracker.R
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
+import kotlinx.coroutines.launch
+import android.widget.Toast
+import androidx.compose.runtime.rememberCoroutineScope
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +75,7 @@ fun AddEmployeeScreen(navController: NavController) {
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF3949AB))
@@ -92,8 +97,11 @@ fun AddEmployeeScreen(navController: NavController) {
 
 @Composable
 fun EmployeeForm(navController: NavController) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isSubmitting by remember { mutableStateOf(false) }
+
     var fullName by remember { mutableStateOf("") }
-    var employeeId by remember { mutableStateOf("EMP007") }
     var department by remember { mutableStateOf("") }
     var role by remember { mutableStateOf("") }
     var joiningDate by remember { mutableStateOf("") }
@@ -142,7 +150,6 @@ fun EmployeeForm(navController: NavController) {
         Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Full Name *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = employeeId, onValueChange = { employeeId = it }, label = { Text("Employee ID *") }, modifier = Modifier.fillMaxWidth(), readOnly = true)
                 DepartmentDropdown(selected = department, onSelected = { department = it })
                 OutlinedTextField(value = role, onValueChange = { role = it }, label = { Text("Role/Position *") }, placeholder = { Text("e.g., Senior Developer") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
@@ -163,19 +170,47 @@ fun EmployeeForm(navController: NavController) {
         // Action Buttons
         Button(
             onClick = {
-                val newEmployee = Employee(employeeId, fullName, role, department, 0f, R.drawable.ic_launcher_background)
-                EmployeeRepository.addEmployee(newEmployee)
-                navController.navigateUp()
+                if (fullName.isBlank() || role.isBlank() || email.isBlank()) {
+                    Toast.makeText(context, "Please fill required fields", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                
+                scope.launch {
+                    isSubmitting = true
+                    val newEmployee = Employee(
+                        name = fullName,
+                        email = email,
+                        department = department,
+                        position = role,
+                        phoneNumber = phone,
+                        joiningDate = joiningDate,
+                        rating = 0f
+                    )
+                    val result = EmployeeRepository.addEmployee(newEmployee)
+                    isSubmitting = false
+                    
+                    if (result.isSuccess) {
+                        Toast.makeText(context, "Employee added successfully!", Toast.LENGTH_SHORT).show()
+                        navController.navigateUp()
+                    } else {
+                        Toast.makeText(context, "Error: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            enabled = !isSubmitting
         ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Add Employee", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            if (isSubmitting) {
+                androidx.compose.material3.CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            } else {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add Employee", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -195,7 +230,7 @@ private fun DepartmentDropdown(selected: String, onSelected: (String) -> Unit) {
             label = { Text("Department *") },
             placeholder = { Text("Select department") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor()
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->

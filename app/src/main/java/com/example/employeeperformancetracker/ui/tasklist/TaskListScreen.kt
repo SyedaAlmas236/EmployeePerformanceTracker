@@ -16,81 +16,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.employeeperformancetracker.data.Task
+import com.example.employeeperformancetracker.data.TaskRepository
+import com.example.employeeperformancetracker.data.EmployeeRepository
 import com.example.employeeperformancetracker.ui.navigation.Screen
 import kotlinx.coroutines.launch
-import java.util.*
-
-// Local data class to ensure screen is self-contained and compilable
-data class Task(
-    val id: String = UUID.randomUUID().toString(),
-    val title: String,
-    val description: String,
-    val assignedTo: String,
-    val createdBy: String,
-    val deadline: String,
-    val priority: String,
-    val status: String
-)
-
-// Local repository to ensure screen is self-contained and compilable
-object TaskRepository {
-    private var tasks = listOf(
-        Task(
-            title = "Implement user authentication",
-            description = "Add JWT-based authentication for all API endpoints to secure the application.",
-            assignedTo = "Sarah Johnson",
-            createdBy = "Admin",
-            deadline = "2024-12-20",
-            priority = "High",
-            status = "In Progress"
-        ),
-        Task(
-            title = "Fix responsive layout issues",
-            description = "The main dashboard is not rendering correctly on smaller mobile devices.",
-            assignedTo = "Emily Davis",
-            createdBy = "Admin",
-            deadline = "2024-12-18",
-            priority = "Medium",
-            status = "Completed"
-        ),
-        Task(
-            title = "Write API documentation",
-            description = "Create comprehensive documentation for all public REST API endpoints.",
-            assignedTo = "Michael Chen",
-            createdBy = "Admin",
-            deadline = "2024-12-25",
-            priority = "Low",
-            status = "Pending"
-        ),
-        Task(
-            title = "Database optimization",
-            description = "Review and optimize slow-performing database queries.",
-            assignedTo = "James Wilson",
-            createdBy = "Admin",
-            deadline = "2024-12-22",
-            priority = "High",
-            status = "In Progress"
-        )
-    )
-
-    fun getTasks(): List<Task> = tasks
-
-    fun deleteTask(taskId: String) {
-        tasks = tasks.filterNot { it.id == taskId }
-    }
-
-    fun completeTask(taskId: String) {
-        tasks = tasks.map {
-            if (it.id == taskId) it.copy(status = "Completed") else it
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskListScreen(navController: NavController, drawerState: DrawerState) {
     var selectedTabIndex by remember { mutableStateOf(0) }
-    var tasks by remember { mutableStateOf(TaskRepository.getTasks()) }
+    var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var employees by remember { mutableStateOf<List<com.example.employeeperformancetracker.data.Employee>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
     var showAssignTaskSheet by remember { mutableStateOf(false) }
@@ -99,23 +37,41 @@ fun TaskListScreen(navController: NavController, drawerState: DrawerState) {
     var selectedTask by remember { mutableStateOf<Task?>(null) }
     val taskDetailSheetState = rememberModalBottomSheetState()
 
+    LaunchedEffect(Unit) {
+        isLoading = true
+        tasks = TaskRepository.getTasks()
+        employees = EmployeeRepository.getEmployees()
+        if (employees.isEmpty()) {
+            EmployeeRepository.fetchEmployees()
+            employees = EmployeeRepository.getEmployees()
+        }
+        isLoading = false
+    }
+
     Scaffold(
         containerColor = Color(0xFFF2F4F7),
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-        ) {
-            Header(onAssignClick = { showAssignTaskSheet = true })
-            Spacer(modifier = Modifier.height(16.dp))
-            TaskTabs(selectedTabIndex = selectedTabIndex, onTabSelected = { selectedTabIndex = it })
-            Spacer(modifier = Modifier.height(16.dp))
-            TaskList(
-                tasks = tasks,
-                selectedTabIndex = selectedTabIndex,
-                onTaskClick = { task -> selectedTask = task })
+        if (isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp)
+            ) {
+                Header(onAssignClick = { showAssignTaskSheet = true })
+                Spacer(modifier = Modifier.height(16.dp))
+                TaskTabs(selectedTabIndex = selectedTabIndex, onTabSelected = { selectedTabIndex = it })
+                Spacer(modifier = Modifier.height(16.dp))
+                TaskList(
+                    tasks = tasks,
+                    employees = employees,
+                    selectedTabIndex = selectedTabIndex,
+                    onTaskClick = { task -> selectedTask = task })
+            }
         }
 
         if (showAssignTaskSheet) {
@@ -125,7 +81,12 @@ fun TaskListScreen(navController: NavController, drawerState: DrawerState) {
             ) {
                 AssignTaskContent(
                     onCancel = { scope.launch { assignTaskSheetState.hide() }.invokeOnCompletion { if (!assignTaskSheetState.isVisible) showAssignTaskSheet = false } },
-                    onAssign = { scope.launch { assignTaskSheetState.hide() }.invokeOnCompletion { if (!assignTaskSheetState.isVisible) showAssignTaskSheet = false } }
+                    onAssign = { 
+                        scope.launch { 
+                            tasks = TaskRepository.getTasks()
+                            assignTaskSheetState.hide() 
+                        }.invokeOnCompletion { if (!assignTaskSheetState.isVisible) showAssignTaskSheet = false } 
+                    }
                 )
             }
         }
@@ -137,16 +98,25 @@ fun TaskListScreen(navController: NavController, drawerState: DrawerState) {
             ) {
                 TaskDetailsSheet(
                     task = task,
+                    employees = employees,
                     onClose = { selectedTask = null },
                     onMarkAsCompleted = {
-                        TaskRepository.completeTask(task.id)
-                        tasks = TaskRepository.getTasks()
-                        scope.launch { taskDetailSheetState.hide() }.invokeOnCompletion { selectedTask = null }
+                        scope.launch {
+                            task.id?.let { id ->
+                                TaskRepository.updateTaskStatus(id, "completed")
+                                tasks = TaskRepository.getTasks()
+                            }
+                            taskDetailSheetState.hide()
+                        }.invokeOnCompletion { selectedTask = null }
                     },
                     onDelete = {
-                        TaskRepository.deleteTask(task.id)
-                        tasks = TaskRepository.getTasks()
-                        scope.launch { taskDetailSheetState.hide() }.invokeOnCompletion { selectedTask = null }
+                        scope.launch {
+                            task.id?.let { id ->
+                                TaskRepository.deleteTask(id)
+                                tasks = TaskRepository.getTasks()
+                            }
+                            taskDetailSheetState.hide()
+                        }.invokeOnCompletion { selectedTask = null }
                     }
                 )
             }
@@ -200,24 +170,25 @@ private fun TaskTabs(selectedTabIndex: Int, onTabSelected: (Int) -> Unit) {
 }
 
 @Composable
-private fun TaskList(tasks: List<Task>, selectedTabIndex: Int, onTaskClick: (Task) -> Unit) {
+private fun TaskList(tasks: List<Task>, employees: List<com.example.employeeperformancetracker.data.Employee>, selectedTabIndex: Int, onTaskClick: (Task) -> Unit) {
     val filteredTasks = when (selectedTabIndex) {
-        1 -> tasks.filter { it.status == "Pending" }
-        2 -> tasks.filter { it.status == "In Progress" }
-        3 -> tasks.filter { it.status == "Completed" }
+        1 -> tasks.filter { it.status?.lowercase() == "pending" }
+        2 -> tasks.filter { it.status?.lowercase() == "in progress" }
+        3 -> tasks.filter { it.status?.lowercase() == "completed" }
         else -> tasks
     }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items(filteredTasks) { task ->
-            TaskListItem(task = task, onTaskClick = onTaskClick)
+            val assignedName = employees.find { it.id == task.assignedTo || it.userId == task.assignedTo }?.name ?: "Unassigned"
+            TaskListItem(task = task, assignedName = assignedName, onTaskClick = onTaskClick)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TaskListItem(task: Task, onTaskClick: (Task) -> Unit) {
+private fun TaskListItem(task: Task, assignedName: String, onTaskClick: (Task) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -228,21 +199,22 @@ private fun TaskListItem(task: Task, onTaskClick: (Task) -> Unit) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(text = task.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                StatusBadge(status = task.status)
+                StatusBadge(status = task.status ?: "pending")
             }
-            Text(text = task.description, color = Color.Gray, fontSize = 14.sp)
+            task.description?.let { Text(text = it, color = Color.Gray, fontSize = 14.sp) }
             Spacer(modifier = Modifier.height(16.dp))
-            InfoRow(icon = Icons.Default.Person, text = "Assigned to: ${task.assignedTo}")
-            InfoRow(icon = Icons.Default.CalendarToday, text = "Deadline: ${task.deadline}")
+            InfoRow(icon = Icons.Default.Person, text = "Assigned to: $assignedName")
+            InfoRow(icon = Icons.Default.CalendarToday, text = "Deadline: ${task.deadline ?: "No deadline"}")
             Spacer(modifier = Modifier.height(16.dp))
-            PriorityBadge(priority = task.priority)
+            PriorityBadge(priority = task.priority ?: "medium")
         }
     }
 }
 
 @Composable
-private fun TaskDetailsSheet(task: Task, onClose: () -> Unit, onMarkAsCompleted: () -> Unit, onDelete: () -> Unit) {
+private fun TaskDetailsSheet(task: Task, employees: List<com.example.employeeperformancetracker.data.Employee>, onClose: () -> Unit, onMarkAsCompleted: () -> Unit, onDelete: () -> Unit) {
     var workUpdate by remember { mutableStateOf("") }
+    val assignedName = employees.find { it.id == task.assignedTo || it.userId == task.assignedTo }?.name ?: "Unassigned"
 
     Column(modifier = Modifier.padding(16.dp).background(Color.White)) {
         // Header
@@ -259,14 +231,14 @@ private fun TaskDetailsSheet(task: Task, onClose: () -> Unit, onMarkAsCompleted:
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(text = task.title, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    StatusBadge(status = task.status)
+                    StatusBadge(status = task.status ?: "pending")
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                PriorityBadge(priority = task.priority)
+                PriorityBadge(priority = task.priority ?: "medium")
                 Spacer(modifier = Modifier.height(8.dp))
-                InfoRow(icon = Icons.Default.Person, text = task.assignedTo)
+                InfoRow(icon = Icons.Default.Person, text = assignedName)
                 Spacer(modifier = Modifier.height(8.dp))
-                InfoRow(icon = Icons.Default.CalendarToday, text = task.deadline)
+                InfoRow(icon = Icons.Default.CalendarToday, text = task.deadline ?: "No deadline")
             }
         }
 
@@ -275,30 +247,7 @@ private fun TaskDetailsSheet(task: Task, onClose: () -> Unit, onMarkAsCompleted:
         // Task Description
         Text("Task Description", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(8.dp))
-        Text(task.description, color = Color.Gray)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Attachments
-        Text("Attachments", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = { /* TODO: Open file picker */ }, colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray), shape = RoundedCornerShape(8.dp)) {
-            Icon(Icons.Default.Upload, contentDescription = "Upload Attachment", tint = Color.Black)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("No attachments uploaded", color = Color.Black)
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Work Update
-        Text("Work Update", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = workUpdate,
-            onValueChange = { workUpdate = it },
-            modifier = Modifier.fillMaxWidth().height(100.dp),
-            placeholder = { Text("Add a note...") }
-        )
+        Text(task.description ?: "No description provided", color = Color.Gray)
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -324,34 +273,30 @@ private fun TaskDetailsSheet(task: Task, onClose: () -> Unit, onMarkAsCompleted:
     }
 }
 
-
-@Composable
-private fun DetailItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = icon, contentDescription = label, tint = Color.Gray)
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(text = label, color = Color.Gray, fontSize = 12.sp)
-                Text(text = value, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AssignTaskContent(onCancel: () -> Unit, onAssign: () -> Unit) {
-    val employees = listOf("Sarah Johnson", "Emily Davis", "Michael Chen", "James Wilson")
-    val priorities = listOf("Low", "Medium", "High")
-    val statuses = listOf("Pending", "In Progress", "Completed")
+    var employees by remember { mutableStateOf<List<com.example.employeeperformancetracker.data.Employee>>(emptyList()) }
+    val priorities = listOf("low", "medium", "high")
+    val statuses = listOf("pending", "completed", "overdue")
 
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var assignedTo by remember { mutableStateOf(employees[0]) }
+    var selectedEmployee by remember { mutableStateOf<com.example.employeeperformancetracker.data.Employee?>(null) }
     var priority by remember { mutableStateOf(priorities[1]) }
     var deadline by remember { mutableStateOf("") }
     var status by remember { mutableStateOf(statuses[0]) }
+    
+    val scope = rememberCoroutineScope()
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        employees = EmployeeRepository.getEmployees()
+        if (employees.isEmpty()) {
+            EmployeeRepository.fetchEmployees()
+            employees = EmployeeRepository.getEmployees()
+        }
+    }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Row(
@@ -381,7 +326,12 @@ private fun AssignTaskContent(onCancel: () -> Unit, onAssign: () -> Unit) {
             minLines = 3
         )
         Spacer(modifier = Modifier.height(16.dp))
-        DropdownField(label = "Assign To *", options = employees, selected = assignedTo, onSelected = { assignedTo = it })
+        DropdownField(
+            label = "Assign To *", 
+            options = employees.map { it.name }, 
+            selected = selectedEmployee?.name ?: "Select", 
+            onSelected = { name -> selectedEmployee = employees.find { it.name == name } }
+        )
         Spacer(modifier = Modifier.height(16.dp))
         DropdownField(label = "Priority *", options = priorities, selected = priority, onSelected = { priority = it })
         Spacer(modifier = Modifier.height(16.dp))
@@ -389,12 +339,10 @@ private fun AssignTaskContent(onCancel: () -> Unit, onAssign: () -> Unit) {
             value = deadline,
             onValueChange = { deadline = it },
             label = { Text("Deadline *") },
-            placeholder = { Text("dd-mm-yyyy") },
+            placeholder = { Text("yyyy-mm-dd") },
             trailingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = "Select Date") },
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        DropdownField(label = "Status *", options = statuses, selected = status, onSelected = { status = it })
         Spacer(modifier = Modifier.height(24.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -406,11 +354,31 @@ private fun AssignTaskContent(onCancel: () -> Unit, onAssign: () -> Unit) {
             }
             Spacer(modifier = Modifier.width(8.dp))
             Button(
-                onClick = onAssign,
+                onClick = {
+                    scope.launch {
+                        isSubmitting = true
+                        val newTask = Task(
+                            title = title,
+                            description = description,
+                            assignedTo = selectedEmployee?.id,
+                            priority = priority,
+                            status = status,
+                            deadline = deadline
+                        )
+                        TaskRepository.addTask(newTask)
+                        isSubmitting = false
+                        onAssign()
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(8.dp),
+                enabled = !isSubmitting && title.isNotBlank()
             ) {
-                Text("Assign Task")
+                if (isSubmitting) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Assign Task")
+                }
             }
         }
     }
@@ -428,7 +396,7 @@ private fun DropdownField(label: String, options: List<String>, selected: String
             readOnly = true,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor()
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
@@ -455,14 +423,14 @@ private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text:
 
 @Composable
 private fun StatusBadge(status: String) {
-    val color = when (status) {
-        "Completed" -> Color(0xFF4CAF50)
-        "In Progress" -> Color(0xFFF57C00)
-        "Pending" -> Color.Gray
+    val color = when (status.lowercase()) {
+        "completed" -> Color(0xFF4CAF50)
+        "in progress" -> Color(0xFFF57C00)
+        "pending" -> Color.Gray
         else -> Color.Gray
     }
     Text(
-        text = status,
+        text = status.replaceFirstChar { it.uppercase() },
         color = Color.White,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier
@@ -474,20 +442,14 @@ private fun StatusBadge(status: String) {
 
 @Composable
 private fun PriorityBadge(priority: String) {
-    val priorityText = when (priority) {
-        "High" -> "High Priority"
-        "Medium" -> "Medium Priority"
-        "Low" -> "Low Priority"
-        else -> priority
-    }
-    val color = when (priority) {
-        "High" -> Color(0xFFD32F2F)
-        "Medium" -> Color(0xFFF57C00)
-        "Low" -> Color.Gray
+    val color = when (priority.lowercase()) {
+        "high" -> Color(0xFFD32F2F)
+        "medium" -> Color(0xFFF57C00)
+        "low" -> Color.Gray
         else -> Color.Gray
     }
     Text(
-        text = priorityText,
+        text = "${priority.replaceFirstChar { it.uppercase() }} Priority",
         color = color,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier

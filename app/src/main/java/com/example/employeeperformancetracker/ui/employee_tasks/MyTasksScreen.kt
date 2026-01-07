@@ -17,21 +17,42 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.employeeperformancetracker.data.Employee
+import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.Task
+import com.example.employeeperformancetracker.data.TaskRepository
+import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.employee_dashboard.BottomNavigationBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyTasksScreen(navController: NavController) {
-    val tasks = TaskRepository.getTasks()
-
+fun MyTasksScreen(
+    navController: NavController,
+    authViewModel: AuthViewModel = viewModel()
+) {
+    var employee by remember { mutableStateOf<Employee?>(null) }
+    var allTasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     var selectedFilter by remember { mutableStateOf("All") }
 
-    val filteredTasks = remember(selectedFilter, tasks) {
+    LaunchedEffect(Unit) {
+        val currentUser = authViewModel.getCurrentUser()
+        if (currentUser != null) {
+            employee = EmployeeRepository.getEmployeeByAuthId(currentUser.id)
+            allTasks = TaskRepository.getTasks().filter { 
+                it.assignedTo == employee?.id || it.assignedTo == employee?.userId 
+            }
+        }
+        isLoading = false
+    }
+
+    val filteredTasks = remember(selectedFilter, allTasks) {
         when (selectedFilter) {
-            "Pending" -> tasks.filter { it.status == "In Progress" || it.status == "Not Started" }
-            "Completed" -> tasks.filter { it.status == "Completed" }
-            else -> tasks
+            "Pending" -> allTasks.filter { it.status == "In Progress" || it.status == "Not Started" }
+            "Completed" -> allTasks.filter { it.status == "Completed" }
+            else -> allTasks
         }
     }
 
@@ -54,20 +75,32 @@ fun MyTasksScreen(navController: NavController) {
         },
         bottomBar = { BottomNavigationBar(navController = navController) }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFFAFAFA))
-        ) {
-            SearchAndFilter(
-                tasks = tasks,
-                selectedFilter = selectedFilter,
-                onFilterSelected = { selectedFilter = it }
-            )
-            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(filteredTasks) { task ->
-                    TaskCard(task = task, navController = navController)
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF43A047))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .background(Color(0xFFFAFAFA))
+            ) {
+                SearchAndFilter(
+                    tasks = allTasks,
+                    selectedFilter = selectedFilter,
+                    onFilterSelected = { selectedFilter = it }
+                )
+                if (filteredTasks.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No tasks found", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        items(filteredTasks) { task ->
+                            TaskCard(task = task, navController = navController)
+                        }
+                    }
                 }
             }
         }
@@ -114,10 +147,10 @@ fun TaskCard(task: Task, navController: NavController) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(task.title, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-                StatusChip(task.status)
+                StatusChip(task.status ?: "Pending")
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(task.description, color = Color.Gray, fontSize = 14.sp, lineHeight = 20.sp)
+            Text(task.description ?: "No description", color = Color.Gray, fontSize = 14.sp, lineHeight = 20.sp)
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -125,11 +158,8 @@ fun TaskCard(task: Task, navController: NavController) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PriorityBadge(task.priority)
-                    InfoChip(icon = Icons.Default.CalendarToday, text = "Due: ${task.dueDate}")
-                    if (task.hasFiles) {
-                        InfoChip(icon = Icons.Default.Attachment, text = "Has files")
-                    }
+                    PriorityBadge(task.priority ?: "Medium")
+                    InfoChip(icon = Icons.Default.CalendarToday, text = "Due: ${task.deadline ?: "N/A"}")
                 }
                 Icon(Icons.Default.KeyboardArrowRight, contentDescription = "View Task", tint = Color.Gray)
             }
@@ -142,7 +172,7 @@ fun StatusChip(status: String) {
     val (color, icon) = when (status) {
         "In Progress" -> Color(0xFF3949AB) to null
         "Completed" -> Color(0xFF43A047) to Icons.Default.CheckCircle
-        "Not Started" -> Color.Gray to null
+        "Not Started", "Pending" -> Color.Gray to null
         else -> Color.Gray to null
     }
     val chipColors = SuggestionChipDefaults.suggestionChipColors(

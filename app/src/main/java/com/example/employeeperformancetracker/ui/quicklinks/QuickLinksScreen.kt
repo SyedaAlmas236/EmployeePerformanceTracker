@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.employeeperformancetracker.R
 
 private val PrimaryColor = Color(0xFF3949AB)
@@ -32,8 +33,8 @@ private val GrayText = Color(0xFF9E9E9E)
 // --- Data Models ---
 data class NewsItem(val icon: ImageVector, val title: String, val date: String, val category: String)
 data class Announcement(val title: String, val description: String, val date: String, val priority: Priority)
-data class Birthday(val name: String, val department: String, val date: String, val imageRes: Int)
-data class Anniversary(val name: String, val role: String, val years: Int, val date: String, val imageRes: Int)
+data class Birthday(val name: String, val department: String, val date: String, val profileImageUrl: String?)
+data class Anniversary(val name: String, val position: String, val years: Int, val date: String, val profileImageUrl: String?)
 
 enum class Priority { High, Medium, Normal }
 
@@ -50,14 +51,14 @@ val announcements = listOf(
 )
 
 val upcomingBirthdays = listOf(
-    Birthday("Sarah Mitchell", "Engineering", "November 16", R.drawable.ic_launcher_background),
-    Birthday("John Anderson", "Marketing", "November 18", R.drawable.ic_launcher_background),
-    Birthday("Emily Chen", "Design", "November 20", R.drawable.ic_launcher_background)
+    Birthday("Sarah Mitchell", "Engineering", "November 16", null),
+    Birthday("John Anderson", "Marketing", "November 18", null),
+    Birthday("Emily Chen", "Design", "November 20", null)
 )
 
 val workAnniversaries = listOf(
-    Anniversary("Michael Rodriguez", "Operations", 5, "November 17", R.drawable.ic_launcher_background),
-    Anniversary("Lisa Thompson", "HR", 3, "November 19", R.drawable.ic_launcher_background)
+    Anniversary("Michael Rodriguez", "Operations", 5, "November 17", null),
+    Anniversary("Lisa Thompson", "HR", 3, "November 19", null)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -222,7 +223,7 @@ fun UpcomingBirthdaysCard() {
             }
             Spacer(Modifier.height(8.dp))
             upcomingBirthdays.forEach { birthday ->
-                CelebrationItem(imageRes = birthday.imageRes, title = birthday.name, subtitle = birthday.department, date = birthday.date, icon = Icons.Default.CalendarToday, cardColor = Color(0xFFE8F5E9))
+                CelebrationItem(profileImageUrl = birthday.profileImageUrl, title = birthday.name, subtitle = birthday.department, date = birthday.date, icon = Icons.Default.CalendarToday, cardColor = Color(0xFFE8F5E9))
                 Spacer(Modifier.height(8.dp))
             }
         }
@@ -246,7 +247,7 @@ fun WorkAnniversariesCard() {
             Spacer(Modifier.height(8.dp))
             workAnniversaries.forEach { anniversary ->
                 val anniversaryText = "${anniversary.years} Years"
-                CelebrationItem(imageRes = anniversary.imageRes, title = anniversary.name, subtitle = anniversary.role, date = anniversary.date, customText = anniversaryText, icon = Icons.Default.Star, cardColor = Color(0xFFFFF3E0))
+                CelebrationItem(profileImageUrl = anniversary.profileImageUrl, title = anniversary.name, subtitle = anniversary.position, date = anniversary.date, customText = anniversaryText, icon = Icons.Default.Star, cardColor = Color(0xFFFFF3E0))
                 Spacer(Modifier.height(8.dp))
             }
         }
@@ -255,7 +256,7 @@ fun WorkAnniversariesCard() {
 
 @Composable
 fun CelebrationItem(
-    imageRes: Int,
+    profileImageUrl: String?,
     title: String,
     subtitle: String,
     date: String,
@@ -269,7 +270,11 @@ fun CelebrationItem(
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painter = painterResource(id = imageRes), contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape))
+            AsyncImage(
+                model = profileImageUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=$title",
+                contentDescription = null,
+                modifier = Modifier.size(40.dp).clip(CircleShape)
+            )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, fontWeight = FontWeight.SemiBold)

@@ -10,7 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import co.yml.charts.axis.AxisData
 import co.yml.charts.common.model.Point
@@ -32,11 +33,28 @@ import co.yml.charts.ui.linechart.model.LineStyle
 import co.yml.charts.ui.linechart.model.SelectionHighlightPoint
 import co.yml.charts.ui.linechart.model.SelectionHighlightPopUp
 import co.yml.charts.ui.linechart.model.ShadowUnderLine
+import com.example.employeeperformancetracker.data.Employee
+import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.employee_dashboard.BottomNavigationBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmployeePerformanceScreen(navController: NavController) {
+fun EmployeePerformanceScreen(
+    navController: NavController,
+    authViewModel: AuthViewModel = viewModel()
+) {
+    var employee by remember { mutableStateOf<Employee?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val currentUser = authViewModel.getCurrentUser()
+        if (currentUser != null) {
+            employee = EmployeeRepository.getEmployeeByAuthId(currentUser.id)
+        }
+        isLoading = false
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -56,25 +74,31 @@ fun EmployeePerformanceScreen(navController: NavController) {
         },
         bottomBar = { BottomNavigationBar(navController = navController) }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .background(Color(0xFFFAFAFA))
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            OverallPerformanceRatingCard()
-            PerformanceCategories()
-            MonthlyPerformanceTrend()
-            NotesCard()
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF43A047))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .background(Color(0xFFFAFAFA))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OverallPerformanceRatingCard(employee?.rating ?: 0f)
+                PerformanceCategories(employee?.rating ?: 0f)
+                MonthlyPerformanceTrend()
+                NotesCard()
+            }
         }
     }
 }
 
 @Composable
-fun OverallPerformanceRatingCard() {
+fun OverallPerformanceRatingCard(rating: Float) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -89,13 +113,14 @@ fun OverallPerformanceRatingCard() {
             Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
             Spacer(modifier = Modifier.height(8.dp))
             Text("Overall Performance Rating", color = Color.White, fontWeight = FontWeight.Bold)
-            Text("4.5", color = Color.White, fontSize = 60.sp, fontWeight = FontWeight.Bold)
+            Text(String.format("%.1f", rating), color = Color.White, fontSize = 60.sp, fontWeight = FontWeight.Bold)
             Row {
+                val fullStars = rating.toInt()
                 repeat(5) { index ->
                     Icon(
                         Icons.Default.Star,
                         contentDescription = null,
-                        tint = if (index < 4) Color.White else Color.White.copy(alpha = 0.5f)
+                        tint = if (index < fullStars) Color.White else Color.White.copy(alpha = 0.5f)
                     )
                 }
             }
@@ -105,20 +130,22 @@ fun OverallPerformanceRatingCard() {
 }
 
 @Composable
-fun PerformanceCategories() {
+fun PerformanceCategories(baseRating: Float) {
+    // Note: Since we only have one rating in DB, we'll derive others or keep them static for now
     Column {
         Text("Performance Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        PerformanceCategoryRow("Quality", 4.8f, Color(0xFF3949AB))
-        PerformanceCategoryRow("Timeliness", 4.5f, Color(0xFF43A047))
-        PerformanceCategoryRow("Attendance", 4.7f, Color(0xFFFF9800))
-        PerformanceCategoryRow("Communication", 4.3f, Color(0xFF1E88E5))
-        PerformanceCategoryRow("Innovation", 4.4f, Color(0xFF9C27B0))
+        PerformanceCategoryRow("Quality", baseRating, Color(0xFF3949AB))
+        PerformanceCategoryRow("Timeliness", baseRating * 0.95f, Color(0xFF43A047))
+        PerformanceCategoryRow("Attendance", baseRating * 0.98f, Color(0xFFFF9800))
+        PerformanceCategoryRow("Communication", baseRating * 0.92f, Color(0xFF1E88E5))
+        PerformanceCategoryRow("Innovation", baseRating * 0.94f, Color(0xFF9C27B0))
     }
 }
 
 @Composable
 fun PerformanceCategoryRow(title: String, rating: Float, color: Color) {
+    val clampedRating = rating.coerceIn(0f, 5f)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -134,7 +161,7 @@ fun PerformanceCategoryRow(title: String, rating: Float, color: Color) {
         ) {
             Text(title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             LinearProgressIndicator(
-                progress = { rating / 5f },
+                progress = { clampedRating / 5f },
                 modifier = Modifier
                     .weight(2f)
                     .height(8.dp)
@@ -150,7 +177,7 @@ fun PerformanceCategoryRow(title: String, rating: Float, color: Color) {
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(rating.toString(), color = color, fontWeight = FontWeight.Bold)
+                Text(String.format("%.1f", clampedRating), color = color, fontWeight = FontWeight.Bold)
             }
         }
     }

@@ -26,6 +26,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.employeeperformancetracker.data.auth.AuthState
 import com.example.employeeperformancetracker.data.auth.AuthViewModel
+import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.Employee
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +44,17 @@ fun RegisterEmployeeCredentialsScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisibility by remember { mutableStateOf(false) }
     var confirmPasswordVisibility by remember { mutableStateOf(false) }
+
+    var unregisteredEmployees by remember { mutableStateOf<List<Employee>>(emptyList()) }
+    var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
+    var expanded by remember { mutableStateOf(false) }
+    var isLoadingEmployees by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        isLoadingEmployees = true
+        unregisteredEmployees = EmployeeRepository.getUnregisteredEmployees()
+        isLoadingEmployees = false
+    }
 
     // Handle auth state changes
     LaunchedEffect(authState) {
@@ -126,6 +139,56 @@ fun RegisterEmployeeCredentialsScreen(
                         Text("Enter email and password for the employee", color = Color.Gray, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(24.dp))
 
+                        Text("Select Employee", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedEmployee?.name ?: "Select Employee",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Employee") },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isLoadingEmployees) {
+                            DropdownMenuItem(
+                                text = { Text("Loading...") },
+                                onClick = {}
+                            )
+                        } else if (unregisteredEmployees.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("No unregistered employees found") },
+                                onClick = {}
+                            )
+                        } else {
+                            unregisteredEmployees.forEach { employee ->
+                                DropdownMenuItem(
+                                    text = { Text(employee.name) },
+                                    onClick = {
+                                        selectedEmployee = employee
+                                        email = employee.email
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         OutlinedTextField(
                             value = email,
                             onValueChange = { email = it },
@@ -181,11 +244,12 @@ fun RegisterEmployeeCredentialsScreen(
                         Button(
                             onClick = {
                                 when {
+                                    selectedEmployee == null -> Toast.makeText(context, "Please select an employee", Toast.LENGTH_SHORT).show()
                                     email.isBlank() -> Toast.makeText(context, "Please enter email", Toast.LENGTH_SHORT).show()
                                     password.isBlank() -> Toast.makeText(context, "Please enter password", Toast.LENGTH_SHORT).show()
                                     password.length < 6 -> Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
                                     password != confirmPassword -> Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
-                                    else -> viewModel.registerEmployeeCredentials(email, password)
+                                    else -> viewModel.registerEmployeeCredentials(selectedEmployee!!.id!!, email, password)
                                 }
                             },
                             modifier = Modifier

@@ -10,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,21 +19,43 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.employeeperformancetracker.data.Employee
+import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.Task
+import com.example.employeeperformancetracker.data.TaskRepository
+import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.navigation.Screen
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmployeeDashboardScreen(navController: NavController) {
+fun EmployeeDashboardScreen(
+    navController: NavController,
+    authViewModel: AuthViewModel = viewModel()
+) {
     val accentColor = Color(0xFF43A047)
+    var employee by remember { mutableStateOf<Employee?>(null) }
+    var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val currentUser = authViewModel.getCurrentUser()
+        if (currentUser != null) {
+            employee = EmployeeRepository.getEmployeeByAuthId(currentUser.id)
+            tasks = TaskRepository.getTasks().filter { it.assignedTo == employee?.id || it.assignedTo == employee?.userId }
+        }
+        isLoading = false
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Hello, Sarah", fontWeight = FontWeight.Bold)
-                        Text("EMP001", fontSize = 12.sp, color = Color.Gray)
+                        Text("Hello, ${employee?.name ?: "Loading..."}", fontWeight = FontWeight.Bold)
+                        Text(employee?.employeeId ?: "----", fontSize = 12.sp, color = Color.Gray)
                     }
                 },
                 navigationIcon = {
@@ -45,7 +67,11 @@ fun EmployeeDashboardScreen(navController: NavController) {
                             .background(accentColor),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("SJ", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = (employee?.name?.take(2)?.uppercase() ?: "??"),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 },
                 actions = {
@@ -62,28 +88,35 @@ fun EmployeeDashboardScreen(navController: NavController) {
             BottomNavigationBar(navController)
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .background(Color(0xFFFAFAFA))
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            WelcomeCard()
-            PerformanceRatingCard()
-            TasksAssignedCard()
-            AttendanceStatusCard()
-            DepartmentCard()
-            QuickActions(navController)
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = accentColor)
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .background(Color(0xFFFAFAFA))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                WelcomeCard(tasks)
+                PerformanceRatingCard(employee)
+                TasksAssignedCard(tasks)
+                AttendanceStatusCard()
+                DepartmentCard(employee)
+                QuickActions(navController)
+            }
         }
     }
 }
 
 @Composable
-fun WelcomeCard() {
+fun WelcomeCard(tasks: List<Task>) {
     val accentColor = Color(0xFF43A047)
+    val pendingCount = tasks.count { it.status?.lowercase() == "pending" }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -98,7 +131,7 @@ fun WelcomeCard() {
         ) {
             Column {
                 Text("Welcome Back!", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 20.sp)
-                Text("You have 5 pending tasks today", color = Color.White.copy(alpha = 0.9f))
+                Text("You have $pendingCount pending tasks today", color = Color.White.copy(alpha = 0.9f))
             }
             Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
         }
@@ -106,13 +139,15 @@ fun WelcomeCard() {
 }
 
 @Composable
-fun PerformanceRatingCard() {
-    InfoCard(icon = Icons.Default.Star, title = "Performance Rating", primaryText = "4.5/5.0", iconTint = Color(0xFFFBC02D))
+fun PerformanceRatingCard(employee: Employee?) {
+    val rating = employee?.rating ?: 0f
+    InfoCard(icon = Icons.Default.Star, title = "Performance Rating", primaryText = "$rating/5.0", iconTint = Color(0xFFFBC02D))
 }
 
 @Composable
-fun TasksAssignedCard() {
-    InfoCard(icon = Icons.Default.CheckCircleOutline, title = "Tasks Assigned", primaryText = "12", secondaryText = "5 Pending", iconTint = Color(0xFF3949AB))
+fun TasksAssignedCard(tasks: List<Task>) {
+    val pendingCount = tasks.count { it.status?.lowercase() == "pending" }
+    InfoCard(icon = Icons.Default.CheckCircleOutline, title = "Tasks Assigned", primaryText = "${tasks.size}", secondaryText = "$pendingCount Pending", iconTint = Color(0xFF3949AB))
 }
 
 @Composable
@@ -121,8 +156,8 @@ fun AttendanceStatusCard() {
 }
 
 @Composable
-fun DepartmentCard() {
-    InfoCard(icon = Icons.Default.Apartment, title = "Department", primaryText = "Engineering", isChip = true, iconTint = Color(0xFF1E88E5), isNavigable = true)
+fun DepartmentCard(employee: Employee?) {
+    InfoCard(icon = Icons.Default.Apartment, title = "Department", primaryText = employee?.department ?: "N/A", isChip = true, iconTint = Color(0xFF1E88E5), isNavigable = true)
 }
 
 
