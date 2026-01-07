@@ -13,6 +13,19 @@ object TaskRepository {
         }
     }
 
+    suspend fun getTaskById(taskId: String?): Task? {
+        if (taskId == null) return null
+        return try {
+            supabase.from("tasks").select {
+                filter {
+                    eq("id", taskId)
+                }
+            }.decodeSingle<Task>()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     suspend fun addTask(task: Task): Result<Unit> {
         return try {
             supabase.from("tasks").insert(task)
@@ -23,9 +36,10 @@ object TaskRepository {
     }
 
     suspend fun updateTaskStatus(taskId: String, status: String): Result<Unit> {
+        val normalizedStatus = status.lowercase()
         return try {
             supabase.from("tasks").update({
-                set("status", status)
+                set("status", normalizedStatus)
             }) {
                 filter {
                     eq("id", taskId)
@@ -33,6 +47,7 @@ object TaskRepository {
             }
             Result.success(Unit)
         } catch (e: Exception) {
+            println("TaskRepository: Update failed for Task $taskId with status $normalizedStatus: ${e.message}")
             Result.failure(e)
         }
     }

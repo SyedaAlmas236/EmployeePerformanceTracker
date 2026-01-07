@@ -50,8 +50,11 @@ fun MyTasksScreen(
 
     val filteredTasks = remember(selectedFilter, allTasks) {
         when (selectedFilter) {
-            "Pending" -> allTasks.filter { it.status == "In Progress" || it.status == "Not Started" }
-            "Completed" -> allTasks.filter { it.status == "Completed" }
+            "Pending" -> allTasks.filter { 
+                val s = it.status?.lowercase()?.replace("_", " ")
+                s == "pending" || s == "not started" || s == "in progress"
+            }
+            "Completed" -> allTasks.filter { it.status?.lowercase()?.replace("_", " ") == "completed" }
             else -> allTasks
         }
     }
@@ -120,8 +123,11 @@ fun SearchAndFilter(tasks: List<Task>, selectedFilter: String, onFilterSelected:
         filters.forEach { filter ->
             val count = when (filter) {
                 "All" -> tasks.size
-                "Pending" -> tasks.count { it.status == "Not Started" || it.status == "In Progress" }
-                "Completed" -> tasks.count { it.status == "Completed" }
+                "Pending" -> tasks.count { 
+                    val s = it.status?.lowercase()?.replace("_", " ")
+                    s == "pending" || s == "not started" || s == "in progress"
+                }
+                "Completed" -> tasks.count { it.status?.lowercase()?.replace("_", " ") == "completed" }
                 else -> 0
             }
             FilterChip(
@@ -169,10 +175,11 @@ fun TaskCard(task: Task, navController: NavController) {
 
 @Composable
 fun StatusChip(status: String) {
-    val (color, icon) = when (status) {
-        "In Progress" -> Color(0xFF3949AB) to null
-        "Completed" -> Color(0xFF43A047) to Icons.Default.CheckCircle
-        "Not Started", "Pending" -> Color.Gray to null
+    val s = status.lowercase().replace("_", " ")
+    val (color, icon) = when {
+        s == "in progress" -> Color(0xFF3949AB) to null
+        s == "completed" -> Color(0xFF43A047) to Icons.Default.CheckCircle
+        s == "not started" || s == "pending" -> Color.Gray to null
         else -> Color.Gray to null
     }
     val chipColors = SuggestionChipDefaults.suggestionChipColors(
@@ -182,7 +189,7 @@ fun StatusChip(status: String) {
 
     SuggestionChip(
         onClick = {},
-        label = { Text(status, fontWeight = FontWeight.Medium) },
+        label = { Text(s.replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.Medium) },
         icon = { icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp)) } },
         colors = chipColors,
         border = null
@@ -191,9 +198,10 @@ fun StatusChip(status: String) {
 
 @Composable
 fun PriorityBadge(priority: String) {
-    val color = when (priority) {
-        "High" -> Color(0xFFF44336)
-        "Medium" -> Color(0xFFFF9800)
+    val p = priority.lowercase()
+    val color = when {
+        p == "high" -> Color(0xFFF44336)
+        p == "medium" -> Color(0xFFFF9800)
         else -> Color(0xFF4CAF50)
     }
     Card(

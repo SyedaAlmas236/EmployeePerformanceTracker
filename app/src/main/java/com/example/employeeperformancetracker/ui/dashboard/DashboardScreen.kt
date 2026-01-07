@@ -171,7 +171,10 @@ private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: Drawer
 @Composable
 private fun KPISection(employees: List<Employee>, tasks: List<Task>) {
     val totalEmployees = employees.size
-    val pendingTasks = tasks.count { it.status?.lowercase() == "pending" }
+    val pendingTasks = tasks.count { 
+        val s = it.status?.lowercase() 
+        s == "pending" || s == "not started" || s == "in progress"
+    }
     
     // Calculate average rating safely
     val avgRating = if (employees.isNotEmpty()) {

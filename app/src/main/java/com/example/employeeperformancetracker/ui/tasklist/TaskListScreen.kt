@@ -172,9 +172,12 @@ private fun TaskTabs(selectedTabIndex: Int, onTabSelected: (Int) -> Unit) {
 @Composable
 private fun TaskList(tasks: List<Task>, employees: List<com.example.employeeperformancetracker.data.Employee>, selectedTabIndex: Int, onTaskClick: (Task) -> Unit) {
     val filteredTasks = when (selectedTabIndex) {
-        1 -> tasks.filter { it.status?.lowercase() == "pending" }
-        2 -> tasks.filter { it.status?.lowercase() == "in progress" }
-        3 -> tasks.filter { it.status?.lowercase() == "completed" }
+        1 -> tasks.filter { 
+            val s = it.status?.lowercase()?.replace("_", " ")
+            s == "pending" || s == "not started"
+        }
+        2 -> tasks.filter { it.status?.lowercase()?.replace("_", " ") == "in progress" }
+        3 -> tasks.filter { it.status?.lowercase()?.replace("_", " ") == "completed" }
         else -> tasks
     }
 
@@ -213,7 +216,6 @@ private fun TaskListItem(task: Task, assignedName: String, onTaskClick: (Task) -
 
 @Composable
 private fun TaskDetailsSheet(task: Task, employees: List<com.example.employeeperformancetracker.data.Employee>, onClose: () -> Unit, onMarkAsCompleted: () -> Unit, onDelete: () -> Unit) {
-    var workUpdate by remember { mutableStateOf("") }
     val assignedName = employees.find { it.id == task.assignedTo || it.userId == task.assignedTo }?.name ?: "Unassigned"
 
     Column(modifier = Modifier.padding(16.dp).background(Color.White)) {
@@ -423,14 +425,15 @@ private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text:
 
 @Composable
 private fun StatusBadge(status: String) {
-    val color = when (status.lowercase()) {
+    val s = status.lowercase().replace("_", " ")
+    val color = when (s) {
         "completed" -> Color(0xFF4CAF50)
         "in progress" -> Color(0xFFF57C00)
-        "pending" -> Color.Gray
+        "pending", "not started" -> Color.Gray
         else -> Color.Gray
     }
     Text(
-        text = status.replaceFirstChar { it.uppercase() },
+        text = s.replaceFirstChar { it.uppercase() },
         color = Color.White,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier

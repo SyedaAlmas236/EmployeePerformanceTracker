@@ -116,7 +116,10 @@ fun EmployeeDashboardScreen(
 @Composable
 fun WelcomeCard(tasks: List<Task>) {
     val accentColor = Color(0xFF43A047)
-    val pendingCount = tasks.count { it.status?.lowercase() == "pending" }
+    val pendingCount = tasks.count { 
+        val s = it.status?.lowercase()?.replace("_", " ")
+        s == "pending" || s == "not started" || s == "in progress"
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -146,8 +149,22 @@ fun PerformanceRatingCard(employee: Employee?) {
 
 @Composable
 fun TasksAssignedCard(tasks: List<Task>) {
-    val pendingCount = tasks.count { it.status?.lowercase() == "pending" }
-    InfoCard(icon = Icons.Default.CheckCircleOutline, title = "Tasks Assigned", primaryText = "${tasks.size}", secondaryText = "$pendingCount Pending", iconTint = Color(0xFF3949AB))
+    val pendingCount = tasks.count { 
+        val s = it.status?.lowercase()?.replace("_", " ")
+        s == "pending" || s == "not started" || s == "in progress"
+    }
+    val completedCount = tasks.count { 
+        val s = it.status?.lowercase()?.replace("_", " ")
+        s == "completed" 
+    }
+    
+    InfoCard(
+        icon = Icons.Default.CheckCircleOutline, 
+        title = "Tasks Status", 
+        primaryText = "${tasks.size} Total", 
+        secondaryText = "$pendingCount Pending, $completedCount Completed", 
+        iconTint = Color(0xFF3949AB)
+    )
 }
 
 @Composable
