@@ -3,6 +3,7 @@ package com.example.employeeperformancetracker.ui.login
 import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,19 +29,56 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.employeeperformancetracker.data.auth.AuthState
+import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.navigation.Screen
 import com.example.employeeperformancetracker.ui.theme.EmployeePerformanceTrackerTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(navController: NavController) {
+fun LoginScreen(
+    navController: NavController,
+    viewModel: AuthViewModel = viewModel()
+) {
     val accentColor = Color(0xFF3949AB)
+    val context = LocalContext.current
+    val authState by viewModel.authState.collectAsState()
+
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisibility by remember { mutableStateOf(false) }
+
+    // Handle auth state changes
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Success -> {
+                val role = (authState as AuthState.Success).userRole
+                if (role == "admin") {
+                    Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+                    viewModel.resetState()
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                } else {
+                    Toast.makeText(context, "Invalid credentials. Admin login only.", Toast.LENGTH_SHORT).show()
+                    viewModel.resetState()
+                }
+            }
+            is AuthState.Error -> {
+                Toast.makeText(context, (authState as AuthState.Error).message, Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+            }
+            else -> {}
+        }
+    }
 
     Scaffold(
         containerColor = accentColor,
@@ -89,7 +127,12 @@ fun LoginScreen(navController: NavController) {
                     color = Color.White.copy(alpha = 0.9f)
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-                LoginForm(navController, accentColor)
+                LoginForm(navController, accentColor, email, password, passwordVisibility, authState, 
+                    onEmailChange = { email = it },
+                    onPasswordChange = { password = it },
+                    onPasswordVisibilityChange = { passwordVisibility = it },
+                    onLoginClick = { viewModel.signIn(email, password) }
+                )
             }
             Text(
                 text = "© 2025 Performance Tracker. All rights reserved.",
@@ -102,10 +145,18 @@ fun LoginScreen(navController: NavController) {
 }
 
 @Composable
-private fun LoginForm(navController: NavController, accentColor: Color) {
-    var email by remember { mutableStateOf("admin@company.com") }
-    var password by remember { mutableStateOf("password") }
-    var passwordVisibility by remember { mutableStateOf(false) }
+private fun LoginForm(
+    navController: NavController,
+    accentColor: Color,
+    email: String,
+    password: String,
+    passwordVisibility: Boolean,
+    authState: AuthState,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onPasswordVisibilityChange: (Boolean) -> Unit,
+    onLoginClick: () -> Unit
+) {
     val context = LocalContext.current
 
      Card(
@@ -124,21 +175,22 @@ private fun LoginForm(navController: NavController, accentColor: Color) {
             Spacer(modifier = Modifier.height(24.dp))
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = onEmailChange,
                 label = { Text("Email") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 shape = RoundedCornerShape(12.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = onPasswordChange,
                 label = { Text("Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                  trailingIcon = {
-                    IconButton(onClick = { passwordVisibility = !passwordVisibility }) {
+                    IconButton(onClick = { onPasswordVisibilityChange(!passwordVisibility) }) {
                         Icon(
                             if (passwordVisibility) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             contentDescription = "Toggle password visibility"
@@ -152,12 +204,9 @@ private fun LoginForm(navController: NavController, accentColor: Color) {
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(
-                onClick = { 
+                onClick = {
                      if (email.isNotEmpty() && password.isNotEmpty()) {
-                        Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(Screen.Login.route) { inclusive = true }
-                        }
+                        onLoginClick()
                     } else {
                         Toast.makeText(context, "Please enter email and password", Toast.LENGTH_SHORT).show()
                     }
@@ -166,23 +215,35 @@ private fun LoginForm(navController: NavController, accentColor: Color) {
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                enabled = authState !is AuthState.Loading
             ) {
-                Text("Sign In", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                if (authState is AuthState.Loading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Sign In", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Divider(modifier = Modifier.weight(1f))
-                Text("or", color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
-                Divider(modifier = Modifier.weight(1f))
-            }
-            OutlinedButton(
-                onClick = { /* TODO */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Sign Up Link
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Continue as Guest")
+                Text("Don't have an account? ", color = Color.Gray, fontSize = 14.sp)
+                Text(
+                    text = "Sign Up",
+                    color = accentColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier.clickable {
+                        navController.navigate(Screen.Signup.route)
+                    }
+                )
             }
         }
     }

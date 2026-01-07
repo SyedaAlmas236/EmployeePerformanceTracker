@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -89,6 +90,20 @@ fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
                 Icon(Icons.Default.Analytics, contentDescription = "Analytics Icon", tint = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = "View Analytics", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { navController.navigate(Screen.RegisterEmployeeCredentials.route) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A047))
+            ) {
+                Icon(Icons.Default.PersonAdd, contentDescription = "Register Icon", tint = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Register Employee", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             Spacer(modifier = Modifier.height(16.dp))
         }

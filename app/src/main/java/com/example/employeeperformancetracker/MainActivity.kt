@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Task
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -110,6 +111,15 @@ fun MainApp() {
                     },
                     icon = { Icon(Icons.Default.Groups, contentDescription = "Employees") },
                      modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                 NavigationDrawerItem(
+                    label = { Text("Register Employee") },
+                    selected = currentRoute == Screen.RegisterEmployeeCredentials.route,
+                    onClick = { 
+                        scope.launch { drawerState.close() }
+                        navController.navigate(Screen.RegisterEmployeeCredentials.route)
+                    },
+                    icon = { Icon(Icons.Default.PersonAdd, contentDescription = "Register Employee") }
                 )
                  NavigationDrawerItem(
                     label = { Text("Tasks") },
