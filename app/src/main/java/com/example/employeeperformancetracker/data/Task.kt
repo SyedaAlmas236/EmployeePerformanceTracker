@@ -9,7 +9,7 @@ data class Task(
     @SerialName("title") val title: String,
     @SerialName("description") val description: String? = null,
     @SerialName("priority") val priority: String? = "medium", // 'high', 'medium', 'low'
-    @SerialName("status") val status: String? = "pending", // 'pending', 'completed', 'overdue'
+    @SerialName("status") val status: String? = "pending", // 'pending', 'in_progress', 'completed', 'overdue'
     @SerialName("deadline") val deadline: String? = null,
     @SerialName("assigned_to") val assignedTo: String? = null, // UUID from employees
     @SerialName("created_by") val createdBy: String? = null, // UUID from profiles

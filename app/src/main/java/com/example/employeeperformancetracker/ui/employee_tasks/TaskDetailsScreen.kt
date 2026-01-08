@@ -82,6 +82,7 @@ fun TaskDetailsScreen(navController: NavController, taskId: String?) {
                 WorkUpdateRemarksCard()
                 AttachmentsCard()
                 UpdateAndCompleteButtons(
+                    currentStatus = task?.status ?: "pending",
                     onUpdateClick = {
                         scope.launch {
                             val result = TaskRepository.updateTaskStatus(task!!.id!!, updatedStatus)
@@ -92,6 +93,18 @@ fun TaskDetailsScreen(navController: NavController, taskId: String?) {
                                 val errorMsg = result.exceptionOrNull()?.message ?: "Unknown Error"
                                 println("UI Error Log: Task Update Failed: $errorMsg")
                                 Toast.makeText(context, "Update Failed: $errorMsg. Check RLS Policies.", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    onInProgressClick = {
+                        scope.launch {
+                            val result = TaskRepository.updateTaskStatus(task!!.id!!, "in_progress")
+                            if (result.isSuccess) {
+                                Toast.makeText(context, "Task is now In Progress!", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            } else {
+                                val errorMsg = result.exceptionOrNull()?.message ?: "Unknown Error"
+                                Toast.makeText(context, "Failed: $errorMsg", Toast.LENGTH_LONG).show()
                             }
                         }
                     },
@@ -274,25 +287,46 @@ fun AttachmentsCard() {
 }
 
 @Composable
-fun UpdateAndCompleteButtons(onUpdateClick: () -> Unit, onCompleteClick: () -> Unit) {
+fun UpdateAndCompleteButtons(
+    currentStatus: String,
+    onUpdateClick: () -> Unit,
+    onInProgressClick: () -> Unit,
+    onCompleteClick: () -> Unit
+) {
+    val normalizedStatus = currentStatus.lowercase().replace("_", " ")
+    
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (normalizedStatus != "in progress" && normalizedStatus != "completed") {
+            Button(
+                onClick = onInProgressClick,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3949AB)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Start Working (In Progress)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        }
+
         Button(
             onClick = onUpdateClick,
             modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3949AB)),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Update Task", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Update Status From Dropdown", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
-        OutlinedButton(
-            onClick = onCompleteClick,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            border = BorderStroke(1.dp, Color(0xFF43A047)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF43A047))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Mark as Completed", color = Color(0xFF43A047), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        
+        if (normalizedStatus != "completed") {
+            OutlinedButton(
+                onClick = onCompleteClick,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                border = BorderStroke(1.dp, Color(0xFF43A047)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF43A047))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Mark as Completed", color = Color(0xFF43A047), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
         }
     }
 }

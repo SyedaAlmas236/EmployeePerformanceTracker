@@ -36,7 +36,7 @@ object TaskRepository {
     }
 
     suspend fun updateTaskStatus(taskId: String, status: String): Result<Unit> {
-        val normalizedStatus = status.lowercase()
+        val normalizedStatus = status.lowercase().replace(" ", "_")
         return try {
             supabase.from("tasks").update({
                 set("status", normalizedStatus)
