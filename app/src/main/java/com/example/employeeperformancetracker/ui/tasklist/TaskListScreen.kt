@@ -62,7 +62,7 @@ fun TaskListScreen(navController: NavController, drawerState: DrawerState) {
                     .padding(paddingValues)
                     .padding(16.dp)
             ) {
-                Header(onAssignClick = { showAssignTaskSheet = true })
+                Header(navController = navController, onAssignClick = { showAssignTaskSheet = true })
                 Spacer(modifier = Modifier.height(16.dp))
                 TaskTabs(selectedTabIndex = selectedTabIndex, onTabSelected = { selectedTabIndex = it })
                 Spacer(modifier = Modifier.height(16.dp))
@@ -81,11 +81,11 @@ fun TaskListScreen(navController: NavController, drawerState: DrawerState) {
             ) {
                 AssignTaskContent(
                     onCancel = { scope.launch { assignTaskSheetState.hide() }.invokeOnCompletion { if (!assignTaskSheetState.isVisible) showAssignTaskSheet = false } },
-                    onAssign = { 
-                        scope.launch { 
+                    onAssign = {
+                        scope.launch {
                             tasks = TaskRepository.getTasks()
-                            assignTaskSheetState.hide() 
-                        }.invokeOnCompletion { if (!assignTaskSheetState.isVisible) showAssignTaskSheet = false } 
+                            assignTaskSheetState.hide()
+                        }.invokeOnCompletion { if (!assignTaskSheetState.isVisible) showAssignTaskSheet = false }
                     }
                 )
             }
@@ -125,25 +125,44 @@ fun TaskListScreen(navController: NavController, drawerState: DrawerState) {
 }
 
 @Composable
-private fun Header(onAssignClick: () -> Unit) {
+private fun Header(navController: NavController, onAssignClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
-            Text("Task Management", fontWeight = FontWeight.Bold, fontSize = 24.sp)
-            Text("Assign and track employee tasks", color = Color.Gray, fontSize = 14.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { navController.popBackStack() }) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+            Column {
+                Text("Task Management", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                Text("Assign and track employee tasks", color = Color.Gray, fontSize = 14.sp)
+            }
         }
-        Button(
-            onClick = onAssignClick,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Assign Task")
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Assign Task")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = onAssignClick,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(6.dp),
+                contentPadding = PaddingValues(
+                    horizontal = 10.dp,
+                    vertical = 6.dp
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Assign Task",
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Assign Task",
+                    fontSize = 12.sp
+                )
+            }
         }
+
     }
 }
 
@@ -172,7 +191,7 @@ private fun TaskTabs(selectedTabIndex: Int, onTabSelected: (Int) -> Unit) {
 @Composable
 private fun TaskList(tasks: List<Task>, employees: List<com.example.employeeperformancetracker.data.Employee>, selectedTabIndex: Int, onTaskClick: (Task) -> Unit) {
     val filteredTasks = when (selectedTabIndex) {
-        1 -> tasks.filter { 
+        1 -> tasks.filter {
             val s = it.status?.lowercase()?.replace("_", " ")
             s == "pending" || s == "not started"
         }
@@ -207,7 +226,7 @@ private fun TaskListItem(task: Task, assignedName: String, onTaskClick: (Task) -
             task.description?.let { Text(text = it, color = Color.Gray, fontSize = 14.sp) }
             Spacer(modifier = Modifier.height(16.dp))
             InfoRow(icon = Icons.Default.Person, text = "Assigned to: $assignedName")
-            InfoRow(icon = Icons.Default.CalendarToday, text = "Deadline: ${task.deadline ?: "No deadline"}")
+            InfoRow(icon = Icons.Default.CalendarToday, text = "Deadline: " + (task.deadline ?: "No deadline"))
             Spacer(modifier = Modifier.height(16.dp))
             PriorityBadge(priority = task.priority ?: "medium")
         }
@@ -215,65 +234,133 @@ private fun TaskListItem(task: Task, assignedName: String, onTaskClick: (Task) -
 }
 
 @Composable
-private fun TaskDetailsSheet(task: Task, employees: List<com.example.employeeperformancetracker.data.Employee>, onClose: () -> Unit, onMarkAsCompleted: () -> Unit, onDelete: () -> Unit) {
-    val assignedName = employees.find { it.id == task.assignedTo || it.userId == task.assignedTo }?.name ?: "Unassigned"
+private fun TaskDetailsSheet(
+    task: Task,
+    employees: List<com.example.employeeperformancetracker.data.Employee>,
+    onClose: () -> Unit,
+    onMarkAsCompleted: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val assignedName = employees
+        .find { it.id == task.assignedTo || it.userId == task.assignedTo }
+        ?.name ?: "Unassigned"
 
-    Column(modifier = Modifier.padding(16.dp).background(Color.White)) {
-        // Header
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(text = "Task Details", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(16.dp)
+    ) {
+
+        // 🔹 Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Task Details",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "Close")
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close"
+                )
             }
         }
+
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Task Header Card
-        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+        // 🔹 Task Header Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(text = task.title, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = task.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
                     StatusBadge(status = task.status ?: "pending")
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 PriorityBadge(priority = task.priority ?: "medium")
+
                 Spacer(modifier = Modifier.height(8.dp))
-                InfoRow(icon = Icons.Default.Person, text = assignedName)
+
+                InfoRow(
+                    icon = Icons.Default.Person,
+                    text = assignedName
+                )
+
                 Spacer(modifier = Modifier.height(8.dp))
-                InfoRow(icon = Icons.Default.CalendarToday, text = task.deadline ?: "No deadline")
+
+                InfoRow(
+                    icon = Icons.Default.CalendarToday,
+                    text = task.deadline ?: "No deadline"
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Task Description
-        Text("Task Description", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        // 🔹 Description
+        Text(
+            text = "Task Description",
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
         Spacer(modifier = Modifier.height(8.dp))
-        Text(task.description ?: "No description provided", color = Color.Gray)
+        Text(
+            text = task.description ?: "No description provided",
+            color = Color.Gray
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Action Buttons
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // 🔹 Action Buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
             Button(
                 onClick = onMarkAsCompleted,
+                modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                modifier = Modifier.weight(1f)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                )
             ) {
                 Text("Mark as Completed")
             }
+
             Button(
                 onClick = onDelete,
+                modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                modifier = Modifier.weight(1f)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Red
+                )
             ) {
                 Text("Delete Task")
             }
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -288,7 +375,7 @@ private fun AssignTaskContent(onCancel: () -> Unit, onAssign: () -> Unit) {
     var priority by remember { mutableStateOf(priorities[1]) }
     var deadline by remember { mutableStateOf("") }
     var status by remember { mutableStateOf(statuses[0]) }
-    
+
     val scope = rememberCoroutineScope()
     var isSubmitting by remember { mutableStateOf(false) }
 
@@ -329,9 +416,9 @@ private fun AssignTaskContent(onCancel: () -> Unit, onAssign: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         DropdownField(
-            label = "Assign To *", 
-            options = employees.map { it.name }, 
-            selected = selectedEmployee?.name ?: "Select", 
+            label = "Assign To *",
+            options = employees.map { it.name },
+            selected = selectedEmployee?.name ?: "Select",
             onSelected = { name -> selectedEmployee = employees.find { it.name == name } }
         )
         Spacer(modifier = Modifier.height(16.dp))

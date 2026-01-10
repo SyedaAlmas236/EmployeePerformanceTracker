@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,6 +28,8 @@ import com.example.employeeperformancetracker.data.Task
 import com.example.employeeperformancetracker.data.TaskRepository
 import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.navigation.Screen
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +42,9 @@ fun EmployeeDashboardScreen(
     var employee by remember { mutableStateOf<Employee?>(null) }
     var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+
+    var attendanceMarked by rememberSaveable { mutableStateOf(false) }
+    var markedTime by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val currentUser = authViewModel.getCurrentUser()
@@ -102,6 +108,80 @@ fun EmployeeDashboardScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Attendance Marking Section
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = accentColor)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Today's Attendance",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        if (!attendanceMarked) {
+                            Text(
+                                text = "Mark your attendance for today",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        attendanceMarked = true
+                                        markedTime = LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a"))
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.White,
+                                        contentColor = accentColor
+                                    ),
+                                    contentPadding = PaddingValues(vertical = 12.dp)
+                                ) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Mark Present", fontWeight = FontWeight.SemiBold)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color.White)
+                                }
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                                Text("Present", color = Color.White, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text(
+                                    text = "Marked at $markedTime",
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
                 WelcomeCard(tasks)
                 PerformanceRatingCard(employee)
                 TasksAssignedCard(tasks)
@@ -186,7 +266,7 @@ fun QuickActions(navController: NavController) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
             QuickActionItem(icon = Icons.Default.Checklist, text = "View Tasks", color = Color(0xFFE8EAF6), onClick = { navController.navigate(Screen.EmployeeTasks.route) })
             QuickActionItem(icon = Icons.Default.StarBorder, text = "Performance", color = Color(0xFFE8F5E9), onClick = { navController.navigate(Screen.EmployeePerformance.route) })
-            QuickActionItem(icon = Icons.Default.CalendarToday, text = "Attendance", color = Color(0xFFFFF8E1), onClick = { navController.navigate(Screen.Attendance.route) })
+            QuickActionItem(icon = Icons.Default.CalendarToday, text = "Attendance", color = Color(0xFFFFF8E1), onClick = { navController.navigate("employee_attendance") })
             QuickActionItem(icon = Icons.Default.PersonOutline, text = "My Profile", color = Color(0xFFE1F5FE), onClick = { navController.navigate(Screen.EmployeeSelfProfile.route) })
         }
     }

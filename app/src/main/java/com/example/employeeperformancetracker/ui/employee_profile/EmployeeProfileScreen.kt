@@ -1,22 +1,13 @@
 package com.example.employeeperformancetracker.ui.employee_profile
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,8 +36,7 @@ import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
 import com.example.employeeperformancetracker.data.Task
 import com.example.employeeperformancetracker.data.TaskRepository
-import android.widget.Toast
-import androidx.compose.ui.platform.LocalContext
+import com.example.employeeperformancetracker.ui.navigation.Screen
 import kotlinx.coroutines.launch
 
 private val PrimaryBlue = Color(0xFF3949AB)
@@ -61,21 +51,26 @@ private val RedColor = Color(0xFFD32F2F)
 fun EmployeeProfileScreen(navController: NavController, employeeName: String?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var employee by remember { mutableStateOf(EmployeeRepository.getEmployeeByName(employeeName)) }
+    
+    // Use repository flow for immediate updates
+    val employees by EmployeeRepository.employees.collectAsState()
+    val employee = remember(employees, employeeName) { employees.find { it.name == employeeName } }
+    
     var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showEditSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(employeeName) {
         isLoading = true
-        // Ensure employees are fetched
         if (EmployeeRepository.getEmployees().isEmpty()) {
             EmployeeRepository.fetchEmployees()
         }
-        employee = EmployeeRepository.getEmployeeByName(employeeName)
         
         // Fetch tasks
-        tasks = TaskRepository.getTasks().filter { it.assignedTo == employee?.id || it.assignedTo == employee?.userId }
+        val currentEmp = EmployeeRepository.getEmployeeByName(employeeName)
+        if (currentEmp != null) {
+            tasks = TaskRepository.getTasks().filter { it.assignedTo == currentEmp.id || it.assignedTo == currentEmp.userId }
+        }
         isLoading = false
     }
 
@@ -100,7 +95,6 @@ fun EmployeeProfileScreen(navController: NavController, employeeName: String?) {
                         scope.launch {
                             val result = EmployeeRepository.updateEmployee(updatedEmployee)
                             if (result.isSuccess) {
-                                employee = updatedEmployee
                                 employeeImageUri = newImageUri
                                 Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
                             } else {
@@ -119,7 +113,7 @@ fun EmployeeProfileScreen(navController: NavController, employeeName: String?) {
                     .verticalScroll(rememberScrollState())
             ) {
                 ProfileHeader(currentEmployee, employeeImageUri)
-                ProfileTabs(currentEmployee, tasks)
+                ProfileTabs(currentEmployee, tasks, navController)
             }
         } else {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
@@ -362,14 +356,14 @@ private fun ProfileHeader(employee: Employee, imageUri: Uri?) {
             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Star, contentDescription = "Rating", tint = GoldColor, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("${employee.rating ?: 0f} Rating", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("${String.format("%.1f", employee.rating ?: 0f)} Rating", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
 @Composable
-private fun ProfileTabs(employee: Employee, tasks: List<Task>) {
+private fun ProfileTabs(employee: Employee, tasks: List<Task>, navController: NavController) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Profile", "Tasks", "Performance")
 
@@ -402,15 +396,13 @@ private fun ProfileTabs(employee: Employee, tasks: List<Task>) {
         when (selectedTabIndex) {
             0 -> ProfileInfoSection(employee)
             1 -> TasksSection(tasks)
-            2 -> PerformanceSection()
+            2 -> PerformanceSection(employee, navController)
         }
     }
 }
 
 @Composable
 private fun ProfileInfoSection(employee: Employee) {
-    var email by rememberSaveable(employee.name) { mutableStateOf("${employee.name.replace(" ", ".").lowercase()}@company.com") }
-    var phone by rememberSaveable { mutableStateOf("+1 234 567 8900") }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -457,7 +449,8 @@ private fun TasksSection(tasks: List<Task>) {
 }
 
 @Composable
-private fun PerformanceSection() {
+private fun PerformanceSection(employee: Employee, navController: NavController) {
+    val rating = employee.rating ?: 0f
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -466,16 +459,19 @@ private fun PerformanceSection() {
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                PerformanceMetric(label = "Quality", rating = 5)
-                PerformanceMetric(label = "Timeliness", rating = 5)
-                PerformanceMetric(label = "Attendance", rating = 4)
-                PerformanceMetric(label = "Communication", rating = 4)
-                PerformanceMetric(label = "Innovation", rating = 5)
+                PerformanceMetric(label = "Quality", rating = rating)
+                PerformanceMetric(label = "Timeliness", rating = rating)
+                PerformanceMetric(label = "Attendance", rating = rating)
+                PerformanceMetric(label = "Communication", rating = rating)
+                PerformanceMetric(label = "Innovation", rating = rating)
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick = { /*TODO*/ },
+            onClick = {
+                navController.currentBackStackEntry?.savedStateHandle?.set("employeeName", employee.name)
+                navController.navigate(Screen.PerformanceEvaluation.route)
+            },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
@@ -513,15 +509,15 @@ private fun DepartmentInfoRow(department: String) {
 
 @Composable
 private fun TaskCard(title: String, date: String, priority: String, status: String) {
-    val statusColor = when(status) {
-        "In Progress" -> OrangeColor
-        "Completed" -> GreenColor
-        "Pending" -> RedColor
+    val statusColor = when(status.lowercase()) {
+        "in progress" -> OrangeColor
+        "completed" -> GreenColor
+        "pending" -> RedColor
         else -> Color.Gray
     }
-     val priorityColor = when(priority) {
-        "High" -> RedColor
-        "Medium" -> OrangeColor
+     val priorityColor = when(priority.lowercase()) {
+        "high" -> RedColor
+        "medium" -> OrangeColor
         else -> Color.Gray
     }
     Card(
@@ -563,7 +559,7 @@ fun StatusChip(text: String, color: Color) {
 }
 
 @Composable
-private fun PerformanceMetric(label: String, rating: Int) {
+private fun PerformanceMetric(label: String, rating: Float) {
     Column {
         Text(label, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(8.dp))
@@ -578,7 +574,7 @@ private fun PerformanceMetric(label: String, rating: Int) {
                 Icon(
                     Icons.Default.Star,
                     contentDescription = null,
-                    tint = if (index < rating) GoldColor else Color.LightGray,
+                    tint = if (index < rating.toInt()) GoldColor else Color.LightGray,
                     modifier = Modifier.size(20.dp)
                 )
             }

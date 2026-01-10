@@ -100,7 +100,7 @@ fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            Header(scope, drawerState)
+            Header(scope, drawerState, navController)
             KPISection(employees, tasks)
             TopPerformersSection(navController, employees)
             Spacer(modifier = Modifier.height(16.dp))
@@ -137,7 +137,7 @@ fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
 }
 
 @Composable
-private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: DrawerState) {
+private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: DrawerState, navController: NavController) {
     Column(
         modifier = Modifier
             .background(
@@ -160,6 +160,7 @@ private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: Drawer
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
+                    .clickable { navController.navigate(Screen.AdminProfile.route) }
             )
         }
         Spacer(modifier = Modifier.height(8.dp))

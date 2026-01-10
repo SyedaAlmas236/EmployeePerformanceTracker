@@ -14,6 +14,7 @@ import com.example.employeeperformancetracker.ui.register_employee.RegisterEmplo
 import com.example.employeeperformancetracker.ui.analytics.AnalyticsScreen
 import com.example.employeeperformancetracker.ui.assigntask.AssignTaskScreen
 import com.example.employeeperformancetracker.ui.attendance.AttendanceScreen
+import com.example.employeeperformancetracker.ui.attendance.EmployeeAttendanceScreen
 import com.example.employeeperformancetracker.ui.dashboard.DashboardScreen
 import com.example.employeeperformancetracker.ui.employee_dashboard.EmployeeDashboardScreen
 import com.example.employeeperformancetracker.ui.employee_login.EmployeeLoginScreen
@@ -33,6 +34,7 @@ import com.example.employeeperformancetracker.ui.reimbursements.ReimbursementsSc
 import com.example.employeeperformancetracker.ui.reportsandsettings.ReportsAndSettingsScreen
 import com.example.employeeperformancetracker.ui.splash.SplashScreen
 import com.example.employeeperformancetracker.ui.tasklist.TaskListScreen
+import com.example.employeeperformancetracker.ui.adminprofile.AdminProfileScreen
 
 @Composable
 fun NavigationGraph(navController: NavHostController, drawerState: DrawerState) {
@@ -125,6 +127,12 @@ fun NavigationGraph(navController: NavHostController, drawerState: DrawerState) 
         }
         composable(Screen.EmployeeSettings.route) {
             // Placeholder for Employee Settings
+        }
+        composable(Screen.AdminProfile.route) {
+            AdminProfileScreen(navController = navController)
+        }
+        composable("employee_attendance") {
+            EmployeeAttendanceScreen(navController = navController)
         }
     }
 }
