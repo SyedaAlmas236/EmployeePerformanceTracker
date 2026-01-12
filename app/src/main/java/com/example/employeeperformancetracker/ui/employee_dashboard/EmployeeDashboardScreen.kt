@@ -1,5 +1,6 @@
 package com.example.employeeperformancetracker.ui.employee_dashboard
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,10 +25,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.SupabaseConfig
 import com.example.employeeperformancetracker.data.Task
 import com.example.employeeperformancetracker.data.TaskRepository
 import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.navigation.Screen
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.postgrest.from
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -39,6 +44,7 @@ fun EmployeeDashboardScreen(
     authViewModel: AuthViewModel = viewModel()
 ) {
     val accentColor = Color(0xFF43A047)
+    val scope = rememberCoroutineScope()
     var employee by remember { mutableStateOf<Employee?>(null) }
     var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -51,6 +57,25 @@ fun EmployeeDashboardScreen(
         if (currentUser != null) {
             employee = EmployeeRepository.getEmployeeByAuthId(currentUser.id)
             tasks = TaskRepository.getTasks().filter { it.assignedTo == employee?.id || it.assignedTo == employee?.userId }
+            
+            // Optional: Check if already marked for today
+            try {
+                val today = LocalDate.now().toString()
+                val existing = SupabaseConfig.client.from("attendance")
+                    .select {
+                        filter {
+                            eq("user_id", currentUser.id)
+                            eq("date", today)
+                        }
+                    }.decodeSingleOrNull<Map<String, String>>()
+                
+                if (existing != null) {
+                    attendanceMarked = true
+                    markedTime = existing["marked_at"] ?: ""
+                }
+            } catch (e: Exception) {
+                Log.e("Attendance", "Error checking existing attendance", e)
+            }
         }
         isLoading = false
     }
@@ -135,8 +160,30 @@ fun EmployeeDashboardScreen(
                             ) {
                                 Button(
                                     onClick = {
-                                        attendanceMarked = true
-                                        markedTime = LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a"))
+                                        scope.launch {
+                                            try {
+                                                val supabase = SupabaseConfig.client
+                                                val userId = supabase.auth.currentUserOrNull()?.id
+                                                if (userId != null) {
+                                                    val currentDate = LocalDate.now().toString()
+                                                    val currentTime = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+                                                    
+                                                    supabase.from("attendance").insert(
+                                                        mapOf(
+                                                            "user_id" to userId,
+                                                            "date" to currentDate,
+                                                            "status" to "present",
+                                                            "marked_at" to currentTime
+                                                        )
+                                                    )
+                                                    
+                                                    attendanceMarked = true
+                                                    markedTime = LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a"))
+                                                }
+                                            } catch (e: Exception) {
+                                                Log.e("Attendance", "Error marking attendance", e)
+                                            }
+                                        }
                                     },
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(12.dp),

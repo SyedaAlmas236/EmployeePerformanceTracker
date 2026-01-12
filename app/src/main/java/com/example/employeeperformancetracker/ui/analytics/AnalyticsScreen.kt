@@ -1,6 +1,6 @@
 package com.example.employeeperformancetracker.ui.analytics
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,317 +9,326 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
+import com.example.employeeperformancetracker.data.Employee
+import com.example.employeeperformancetracker.data.EmployeeRepository
+import com.example.employeeperformancetracker.data.Task
+import com.example.employeeperformancetracker.data.TaskRepository
+import co.yml.charts.axis.AxisData
+import co.yml.charts.common.model.Point
+import co.yml.charts.ui.barchart.BarChart
+import co.yml.charts.ui.barchart.models.BarChartData
+import co.yml.charts.ui.barchart.models.BarData
+import co.yml.charts.ui.barchart.models.BarStyle
+import co.yml.charts.ui.linechart.LineChart
+import co.yml.charts.ui.linechart.model.Line
+import co.yml.charts.ui.linechart.model.LineChartData
+import co.yml.charts.ui.linechart.model.LinePlotData
+import co.yml.charts.ui.linechart.model.LineStyle
+import co.yml.charts.ui.linechart.model.SelectionHighlightPoint
+import co.yml.charts.ui.linechart.model.SelectionHighlightPopUp
+import co.yml.charts.ui.linechart.model.ShadowUnderLine
+import co.yml.charts.ui.piechart.charts.PieChart
+import co.yml.charts.ui.piechart.models.PieChartConfig
+import co.yml.charts.ui.piechart.models.PieChartData
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(navController: NavController, drawerState: DrawerState) {
+    val employees by EmployeeRepository.employees.collectAsState()
+    var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        EmployeeRepository.fetchEmployees()
+        tasks = TaskRepository.getTasks()
+        isLoading = false
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "Analytics",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF3F51B5),
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(end = 48.dp)
-                        )
-                    }
-                },
+                title = { Text("Analytics", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF1A1C1E)
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         containerColor = Color(0xFFF8F9FA)
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            AttendanceStatusCard()
-            Spacer(modifier = Modifier.height(16.dp))
-            AverageRatingCard()
-            Spacer(modifier = Modifier.height(16.dp))
-            DepartmentPerformanceCard()
-            Spacer(modifier = Modifier.height(16.dp))
-            RatingTrendsCard()
-            Spacer(modifier = Modifier.height(16.dp))
-            PerformanceCardsRow()
-            Spacer(modifier = Modifier.height(16.dp))
-            KeyInsightsCard()
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@Composable
-fun AttendanceStatusCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Attendance Status (Today)",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = Color(0xFF1A1C1E),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            Box(
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF3F51B5))
+            }
+        } else {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(20.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(0.85f).fillMaxHeight().background(Color(0xFF4CAF50)))
-                    Box(modifier = Modifier.weight(0.08f).fillMaxHeight().background(Color(0xFF3F51B5)))
-                    Box(modifier = Modifier.weight(0.05f).fillMaxHeight().background(Color(0xFFFFC107)))
-                    Box(modifier = Modifier.weight(0.02f).fillMaxHeight().background(Color(0xFF9E9E9E)))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    AttendanceLegendItem(Modifier.weight(1.2f), Color(0xFF4CAF50), "Present: 142")
-                    AttendanceLegendItem(Modifier.weight(1f), Color(0xFF3F51B5), "On Leave: 8")
-                }
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    AttendanceLegendItem(Modifier.weight(1.2f), Color(0xFFFFC107), "Average: 4")
-                    AttendanceLegendItem(Modifier.weight(1f), Color(0xFF9E9E9E), "Not Responded: 2")
-                }
+                SummaryCardsGrid(employees, tasks)
+                PerformanceBarChart(employees)
+                DepartmentPieChart(employees)
+                PerformanceTrendLineChart()
+                PerformanceCards(employees)
             }
         }
     }
 }
 
 @Composable
-fun AttendanceLegendItem(modifier: Modifier, color: Color, text: String) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text = text, fontSize = 13.sp, color = Color(0xFF49454F))
+fun SummaryCardsGrid(employees: List<Employee>, tasks: List<Task>) {
+    val avgRating = if (employees.isNotEmpty()) employees.mapNotNull { it.rating }.average().toFloat() else 0f
+    val completedTasks = tasks.count { it.status?.lowercase()?.replace("_", " ") == "completed" }
+    val pendingTasks = tasks.count { 
+        val s = it.status?.lowercase()?.replace("_", " ")
+        s == "pending" || s == "in progress" || s == "not started"
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            SummaryCard(Modifier.weight(1f), "Total Employees", employees.size.toString(), Icons.Default.Groups, Color(0xFF3F51B5))
+            SummaryCard(Modifier.weight(1f), "Avg Rating", String.format(Locale.getDefault(), "%.1f", avgRating), Icons.Default.Star, Color(0xFFFFC107))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            SummaryCard(Modifier.weight(1f), "Tasks Completed", completedTasks.toString(), Icons.Default.CheckCircle, Color(0xFF4CAF50))
+            SummaryCard(Modifier.weight(1f), "Tasks Pending", pendingTasks.toString(), Icons.Default.PendingActions, Color(0xFFFF5722))
+        }
     }
 }
 
 @Composable
-fun AverageRatingCard() {
+fun SummaryCard(modifier: Modifier, label: String, value: String, icon: ImageVector, color: Color) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            Text(label, fontSize = 12.sp, color = Color.Gray)
+        }
+    }
+}
+
+@Composable
+fun PerformanceBarChart(employees: List<Employee>) {
+    val primaryColor = Color(0xFF3F51B5)
+    val barData = employees.take(6).mapIndexed { index, employee ->
+        BarData(
+            point = Point(index.toFloat(), employee.rating ?: 0f), 
+            label = employee.name.take(5),
+            color = primaryColor
+        )
+    }
+
+    if (barData.isEmpty()) return
+
+    Card(
+        modifier = Modifier.fillMaxWidth().height(350.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Employee Performance Ratings", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(16.dp))
+            val xAxisData = AxisData.Builder()
+                .steps(barData.size - 1)
+                .labelAndAxisLinePadding(12.dp)
+                .labelData { index -> if (index >= 0 && index < barData.size) barData[index].label else "" }
+                .build()
+
+            val yAxisData = AxisData.Builder()
+                .steps(5)
+                .labelAndAxisLinePadding(20.dp)
+                .labelData { index -> index.toString() }
+                .build()
+
+            val barChartData = BarChartData(
+                chartData = barData,
+                xAxisData = xAxisData,
+                yAxisData = yAxisData,
+                backgroundColor = Color.White,
+                showYAxis = true,
+                showXAxis = true,
+                barStyle = BarStyle(
+                    barWidth = 30.dp
+                )
+            )
+            BarChart(modifier = Modifier.fillMaxSize(), barChartData = barChartData)
+        }
+    }
+}
+
+@Composable
+fun DepartmentPieChart(employees: List<Employee>) {
+    val departments = listOf("Engineering", "Design", "Management", "Marketing", "Analytics")
+    val deptCounts = departments.map { dept ->
+        employees.count { it.department?.equals(dept, ignoreCase = true) == true }
+    }
+    
+    val slices = departments.mapIndexed { index, dept ->
+        PieChartData.Slice(dept, deptCounts[index].toFloat(), listOf(Color(0xFF3F51B5), Color(0xFF4CAF50), Color(0xFFFFC107), Color(0xFFFF5722), Color(0xFF9C27B0))[index % 5])
+    }
+
+    val pieChartData = PieChartData(
+        slices = slices,
+        plotType = co.yml.charts.common.model.PlotType.Pie
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth().height(350.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Department Performance", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(16.dp))
+            PieChart(
+                modifier = Modifier.fillMaxSize(),
+                pieChartData = pieChartData,
+                pieChartConfig = PieChartConfig(showSliceLabels = true, sliceLabelTextColor = Color.White)
+            )
+        }
+    }
+}
+
+@Composable
+fun PerformanceTrendLineChart() {
+    val pointsData = listOf(
+        Point(0f, 3.5f), Point(1f, 3.8f), Point(2f, 4.2f), Point(3f, 4.0f), Point(4f, 4.5f), Point(5f, 4.7f)
+    )
+
+    val xAxisData = AxisData.Builder()
+        .steps(pointsData.size - 1)
+        .labelAndAxisLinePadding(12.dp)
+        .labelData { index -> listOf("Jul", "Aug", "Sep", "Oct", "Nov", "Dec").getOrElse(index) { "" } }
+        .build()
+
+    val yAxisData = AxisData.Builder()
+        .steps(5)
+        .labelAndAxisLinePadding(20.dp)
+        .labelData { index -> String.format(Locale.getDefault(), "%.1f", 3.0f + index * 0.4f) }
+        .build()
+
+    val lineChartData = LineChartData(
+        linePlotData = LinePlotData(
+            lines = listOf(
+                Line(
+                    dataPoints = pointsData,
+                    LineStyle(color = Color(0xFF4CAF50)),
+                    intersectionPoint = co.yml.charts.ui.linechart.model.IntersectionPoint(color = Color(0xFF4CAF50)),
+                    selectionHighlightPoint = SelectionHighlightPoint(color = Color(0xFF4CAF50)),
+                    shadowUnderLine = ShadowUnderLine(alpha = 0.1f, brush = androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF4CAF50), Color.Transparent))),
+                    selectionHighlightPopUp = SelectionHighlightPopUp(popUpLabel = { x, y -> String.format(Locale.getDefault(), "%.1f", y) })
+                )
+            )
+        ),
+        xAxisData = xAxisData,
+        yAxisData = yAxisData,
+        backgroundColor = Color.White
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth().height(350.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Monthly Performance Trend", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(16.dp))
+            LineChart(modifier = Modifier.fillMaxSize(), lineChartData = lineChartData)
+        }
+    }
+}
+
+@Composable
+fun PerformanceCards(employees: List<Employee>) {
+    val validEmployees = employees.filter { it.rating != null && it.rating!! > 0 }
+    val sorted = validEmployees.sortedByDescending { it.rating }
+    val topPerformer = sorted.firstOrNull()
+    val needsAttention = sorted.lastOrNull()
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        topPerformer?.let { 
+            PerformanceInfoCard("Top Performer", it, Color(0xFF43A047), Icons.AutoMirrored.Filled.TrendingUp)
+        }
+        needsAttention?.let { 
+            if (it != topPerformer) {
+                PerformanceInfoCard("Needs Attention", it, Color(0xFFD32F2F), Icons.AutoMirrored.Filled.TrendingDown)
+            }
+        }
+    }
+}
+
+@Composable
+fun PerformanceInfoCard(title: String, employee: Employee, color: Color, icon: ImageVector) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Average Rating by Employee",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = Color(0xFF1A1C1E),
-                modifier = Modifier.padding(bottom = 16.dp)
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = rememberAsyncImagePainter(employee.profileImageUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.name}"),
+                contentDescription = null,
+                modifier = Modifier.size(56.dp).clip(CircleShape),
+                contentScale = ContentScale.Crop
             )
-
-            Box(modifier = Modifier.fillMaxWidth().height(220.dp).padding(start = 24.dp, end = 12.dp, bottom = 8.dp)) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val yLines = 3
-                    val stepY = size.height / (yLines + 2)
-                    for (i in 0..yLines + 1) {
-                        val y = size.height - (i * stepY)
-                        drawLine(Color(0xFFF0F0F0), Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
-                    }
-                    drawLine(Color(0xFFCCCCCC), Offset(0f, 0f), Offset(0f, size.height), 1.dp.toPx())
-                }
-                
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceAround
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(employee.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(employee.position ?: "No Position", color = Color.Gray, fontSize = 12.sp)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Box(
+                    modifier = Modifier
+                        .background(color.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    AverageRatingBarItem("John S.", 0.75f)
-                    AverageRatingBarItem("Michael B.", 0.9f)
-                    AverageRatingBarItem("David L.", 0.82f)
+                    Text(title, color = color, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                 }
-                
-                Column(modifier = Modifier.fillMaxHeight().offset(x = (-20).dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    Text("5", fontSize = 11.sp, color = Color.Gray)
-                    Text("4", fontSize = 11.sp, color = Color.Gray)
-                    Text("2", fontSize = 11.sp, color = Color.Gray)
-                    Text("0", fontSize = 11.sp, color = Color.Gray)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AverageRatingBarItem(name: String, heightFactor: Float) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom, modifier = Modifier.fillMaxHeight()) {
-        Box(modifier = Modifier.width(42.dp).fillMaxHeight(heightFactor).clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)).background(Color(0xFF3F51B5)))
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = name, fontSize = 12.sp, color = Color(0xFF49454F))
-    }
-}
-
-@Composable
-fun DepartmentPerformanceCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Department Performance (%)",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = Color(0xFF1A1C1E),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            Box(modifier = Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
-                Canvas(modifier = Modifier.size(160.dp)) {
-                    drawArc(Color(0xFF3F51B5), -120f, 130f, true)
-                    drawArc(Color(0xFF4CAF50), 10f, 110f, true)
-                    drawArc(Color(0xFFFFC107), 120f, 90f, true)
-                    drawArc(Color(0xFF9E9E9E), 210f, 30f, true)
-                }
-
-                Text(text = "Design: 92%", fontSize = 13.sp, color = Color(0xFF3F51B5), modifier = Modifier.align(Alignment.TopStart).padding(start = 16.dp))
-                Text(text = "Engineering", fontSize = 13.sp, color = Color(0xFF4CAF50), modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp, bottom = 40.dp))
-                Text(text = "ct: 88%", fontSize = 13.sp, color = Color(0xFFFFC107), modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 20.dp))
-            }
-        }
-    }
-}
-
-@Composable
-fun RatingTrendsCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Box(modifier = Modifier.fillMaxWidth().height(200.dp).padding(start = 24.dp, end = 12.dp)) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val yLines = 3
-                    val stepY = size.height / (yLines + 2)
-                    for (i in 0..yLines + 1) {
-                        val y = size.height - (i * stepY)
-                        drawLine(Color(0xFFF0F0F0), Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
-                    }
-                    drawLine(Color(0xFFCCCCCC), Offset(0f, 0f), Offset(0f, size.height), 1.dp.toPx())
-
-                    val points = listOf(0.4f, 0.5f, 0.6f, 0.52f, 0.75f, 0.85f)
-                    val stepX = size.width / (points.size - 1)
-                    val path = Path()
-                    points.forEachIndexed { index, yFactor ->
-                        val x = index * stepX
-                        val y = size.height - (yFactor * size.height)
-                        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                        drawCircle(Color(0xFF4CAF50), radius = 4.dp.toPx(), center = Offset(x, y))
-                    }
-                    drawPath(path, Color(0xFF4CAF50), style = Stroke(width = 2.dp.toPx()))
-                }
-                Column(modifier = Modifier.fillMaxHeight().offset(x = (-20).dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    Text("4.3", fontSize = 11.sp, color = Color.Gray)
-                    Text("3.9", fontSize = 11.sp, color = Color.Gray)
-                    Text("3.5", fontSize = 11.sp, color = Color.Gray)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(String.format(Locale.getDefault(), "%.1f", employee.rating), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf("Jul", "Aug", "Sep", "Oct", "Nov", "Dec").forEach {
-                    Text(text = it, fontSize = 11.sp, color = Color.Gray)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PerformanceCardsRow() {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        PerformanceInfoCard(modifier = Modifier.weight(1f), title = "Top Performer", name = "Emily Chen", rating = "4.9/5.0", icon = Icons.Default.TrendingUp, color = Color(0xFF4CAF50))
-        PerformanceInfoCard(modifier = Modifier.weight(1f), title = "Needs Support", name = "Anna M.", rating = "4.2/5.0", icon = Icons.Default.TrendingDown, color = Color(0xFFFF5722))
-    }
-}
-
-@Composable
-fun PerformanceInfoCard(modifier: Modifier, title: String, name: String, rating: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
-    Card(modifier = modifier, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = color)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(text = title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = rating, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp)
-        }
-    }
-}
-
-@Composable
-fun KeyInsightsCard() {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "Key Insights", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = Color(0xFF1A1C1E), modifier = Modifier.padding(bottom = 16.dp))
-            InsightItem(Color(0xFF4CAF50), Color(0xFFE8F5E9), "Overall performance improved by 8% this month", "Design team leading with 92% efficiency")
-            Spacer(modifier = Modifier.height(12.dp))
-            InsightItem(Color(0xFF3F51B5), Color(0xFFE8EAF6), "91% attendance rate this week", "Highest in Q4 2024")
-            Spacer(modifier = Modifier.height(12.dp))
-            InsightItem(Color(0xFFFF5722), Color(0xFFFFF3E0), "28 pending tasks need attention", "Reassign or extend deadlines recommended")
-        }
-    }
-}
-
-@Composable
-fun InsightItem(dotColor: Color, bgColor: Color, title: String, subtitle: String) {
-    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(bgColor).padding(12.dp), verticalAlignment = Alignment.Top) {
-        Box(modifier = Modifier.padding(top = 4.dp).size(8.dp).clip(CircleShape).background(dotColor))
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1A1C1E))
-            Text(text = subtitle, fontSize = 12.sp, color = Color(0xFF49454F))
         }
     }
 }
