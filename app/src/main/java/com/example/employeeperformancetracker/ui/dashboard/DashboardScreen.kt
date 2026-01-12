@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -154,14 +155,24 @@ private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: Drawer
             IconButton(onClick = { scope.launch { drawerState.open() } }) {
                 Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
             }
-            Image(
-                painter = painterResource(id = R.drawable.ic_launcher_background), // Placeholder
-                contentDescription = "Admin Profile",
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .clickable { navController.navigate(Screen.AdminProfile.route) }
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { navController.navigate("admin_notifications") }) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = "Admin Notifications",
+                        tint = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_background), // Placeholder
+                    contentDescription = "Admin Profile",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable { navController.navigate(Screen.AdminProfile.route) }
+                )
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Dashboard", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Analytics
@@ -67,187 +69,210 @@ fun MainApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: ""
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .background(Color(0xFF2A3A8D))
-                        .padding(16.dp)
-                        .fillMaxWidth(),
+    // Define Admin-only routes that should have the navigation drawer
+    val adminRoutesWithDrawer = listOf(
+        Screen.Dashboard.route,
+        Screen.EmployeeList.route,
+        Screen.TaskList.route,
+        Screen.Analytics.route,
+        Screen.Attendance.route,
+        Screen.Payroll.route,
+        Screen.Reimbursements.route,
+        Screen.MeetingBooking.route,
+        Screen.QuickLinks.route,
+        Screen.Settings.route,
+        Screen.AdminProfile.route,
+        Screen.ReportsAndSettings.route,
+        "employee_details/{employeeId}"
+    )
+
+    val showDrawer = adminRoutesWithDrawer.contains(currentRoute)
+
+    if (showDrawer) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet(
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Menu", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        IconButton(onClick = { scope.launch { drawerState.close() } }) {
-                           Icon(Icons.Default.Close, contentDescription = "Close Menu", tint = Color.White)
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        Column(
+                            modifier = Modifier
+                                .background(Color(0xFF2A3A8D))
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Menu", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                IconButton(onClick = { scope.launch { drawerState.close() } }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close Menu", tint = Color.White)
+                                }
+                            }
+                            Text("Smart Workforce Management", fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f))
                         }
+
+                        NavigationDrawerItem(
+                            label = { Text("Dashboard") },
+                            selected = currentRoute == Screen.Dashboard.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.Dashboard.route)
+                            },
+                            icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Employees") },
+                            selected = currentRoute == Screen.EmployeeList.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.EmployeeList.route)
+                            },
+                            icon = { Icon(Icons.Default.Groups, contentDescription = "Employees") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Register Employee") },
+                            selected = currentRoute == Screen.RegisterEmployeeCredentials.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.RegisterEmployeeCredentials.route)
+                            },
+                            icon = { Icon(Icons.Default.PersonAdd, contentDescription = "Register Employee") }
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Tasks") },
+                            selected = currentRoute == Screen.TaskList.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.TaskList.route)
+                            },
+                            icon = { Icon(Icons.Default.Task, contentDescription = "Tasks") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Analytics") },
+                            selected = currentRoute == Screen.Analytics.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.Analytics.route)
+                            },
+                            icon = { Icon(Icons.Default.Analytics, contentDescription = "Analytics") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Attendance") },
+                            selected = currentRoute == Screen.Attendance.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.Attendance.route)
+                            },
+                            icon = { Icon(Icons.Default.CalendarToday, contentDescription = "Attendance") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Payroll") },
+                            selected = currentRoute == Screen.Payroll.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.Payroll.route)
+                            },
+                            icon = { Icon(Icons.Default.Paid, contentDescription = "Payroll") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Reimbursements") },
+                            selected = currentRoute == Screen.Reimbursements.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.Reimbursements.route)
+                            },
+                            icon = { Icon(Icons.Default.Paid, contentDescription = "Reimbursements") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Meetings") },
+                            selected = currentRoute == Screen.MeetingBooking.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.MeetingBooking.route)
+                            },
+                            icon = { Icon(Icons.Default.People, contentDescription = "Meetings") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Quick Links") },
+                            selected = currentRoute == Screen.QuickLinks.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.QuickLinks.route)
+                            },
+                            icon = { Icon(Icons.Default.Task, contentDescription = "Quick Links") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Recruitment") },
+                            selected = false,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                            },
+                            icon = { Icon(Icons.Default.Work, contentDescription = "Recruitment") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                            badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Self Services") },
+                            selected = false,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                            },
+                            icon = { Icon(Icons.Default.Person, contentDescription = "Self Services") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                            badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Corporate Services") },
+                            selected = false,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                            },
+                            icon = { Icon(Icons.Default.Apartment, contentDescription = "Corporate Services") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                            badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                        NavigationDrawerItem(
+                            label = { Text("Settings") },
+                            selected = currentRoute == Screen.Settings.route,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.Settings.route)
+                            },
+                            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                        NavigationDrawerItem(
+                            label = { Text("Logout") },
+                            selected = false,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.Landing.route) { popUpTo(0) }
+                            },
+                            icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout", tint = Color.Red) },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
                     }
-                    Text("Smart Workforce Management", fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f))
                 }
-                
-                NavigationDrawerItem(
-                    label = { Text("Dashboard") },
-                    selected = currentRoute == Screen.Dashboard.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Dashboard.route)
-                    },
-                    icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                 NavigationDrawerItem(
-                    label = { Text("Employees") },
-                    selected = currentRoute == Screen.EmployeeList.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.EmployeeList.route)
-                    },
-                    icon = { Icon(Icons.Default.Groups, contentDescription = "Employees") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                 NavigationDrawerItem(
-                    label = { Text("Register Employee") },
-                    selected = currentRoute == Screen.RegisterEmployeeCredentials.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.RegisterEmployeeCredentials.route)
-                    },
-                    icon = { Icon(Icons.Default.PersonAdd, contentDescription = "Register Employee") }
-                )
-                 NavigationDrawerItem(
-                    label = { Text("Tasks") },
-                    selected = currentRoute == Screen.TaskList.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.TaskList.route)
-                     },
-                    icon = { Icon(Icons.Default.Task, contentDescription = "Tasks") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                 NavigationDrawerItem(
-                    label = { Text("Analytics") },
-                    selected = currentRoute == Screen.Analytics.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Analytics.route)
-                     },
-                    icon = { Icon(Icons.Default.Analytics, contentDescription = "Analytics") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Attendance") },
-                    selected = currentRoute == Screen.Attendance.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Attendance.route)
-                     },
-                    icon = { Icon(Icons.Default.CalendarToday, contentDescription = "Attendance") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Payroll") },
-                    selected = currentRoute == Screen.Payroll.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Payroll.route)
-                     },
-                    icon = { Icon(Icons.Default.Paid, contentDescription = "Payroll") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Reimbursements") },
-                    selected = currentRoute == Screen.Reimbursements.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Reimbursements.route)
-                     },
-                    icon = { Icon(Icons.Default.Paid, contentDescription = "Reimbursements") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Meetings") },
-                    selected = currentRoute == Screen.MeetingBooking.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.MeetingBooking.route)
-                     },
-                    icon = { Icon(Icons.Default.People, contentDescription = "Meetings") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Quick Links") },
-                    selected = currentRoute == Screen.QuickLinks.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.QuickLinks.route)
-                     },
-                    icon = { Icon(Icons.Default.Task, contentDescription = "Quick Links") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                 NavigationDrawerItem(
-                    label = { Text("Recruitment") },
-                    selected = currentRoute == "",
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        // navController.navigate(Screen.Recruitment.route)
-                     },
-                    icon = { Icon(Icons.Default.Work, contentDescription = "Recruitment") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                    badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
-                )
-                 NavigationDrawerItem(
-                    label = { Text("Self Services") },
-                    selected = currentRoute == "",
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        // navController.navigate(Screen.SelfServices.route)
-                     },
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Self Services") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                    badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
-                )
-                NavigationDrawerItem(
-                    label = { Text("Corporate Services") },
-                    selected = currentRoute == "",
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        // navController.navigate(Screen.CorporateServices.route)
-                     },
-                    icon = { Icon(Icons.Default.Apartment, contentDescription = "Corporate Services") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                    badge = { Icon(Icons.Default.ChevronRight, contentDescription = "") }
-                )
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
-                 NavigationDrawerItem(
-                    label = { Text("Settings") },
-                    selected = currentRoute == Screen.Settings.route,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Settings.route)
-                     },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Logout") },
-                    selected = false,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Landing.route) { popUpTo(0) }
-                     },
-                    icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout", tint = Color.Red) },
-                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
             }
+        ) {
+            NavigationGraph(navController = navController, drawerState = drawerState)
         }
-    ) {
+    } else {
+        // Employee flow or Auth flow: No navigation drawer
         NavigationGraph(navController = navController, drawerState = drawerState)
     }
 }

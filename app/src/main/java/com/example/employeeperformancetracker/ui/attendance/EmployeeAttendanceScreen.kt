@@ -52,7 +52,7 @@ fun EmployeeAttendanceScreen(navController: NavController) {
             }
             item {
                 Button(
-                    onClick = { /* Apply Leave Logic */ },
+                    onClick = { navController.navigate("employee_apply_leave") },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A047))

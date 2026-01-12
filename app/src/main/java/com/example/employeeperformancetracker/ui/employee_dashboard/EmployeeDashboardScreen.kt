@@ -81,7 +81,7 @@ fun EmployeeDashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO */ }) {
+                    IconButton(onClick = { navController.navigate("employee_notifications") }) {
                         BadgedBox(badge = { Badge() }) {
                             Icon(Icons.Default.Notifications, contentDescription = "Notifications")
                         }
@@ -253,8 +253,13 @@ fun AttendanceStatusCard() {
 }
 
 @Composable
+fun AttendanceStatusCard(navController: NavController) {
+    InfoCard(icon = Icons.Default.DateRange, title = "Attendance Status", primaryText = "Present", isChip = true, iconTint = Color(0xFF43A047))
+}
+
+@Composable
 fun DepartmentCard(employee: Employee?) {
-    InfoCard(icon = Icons.Default.Apartment, title = "Department", primaryText = employee?.department ?: "N/A", isChip = true, iconTint = Color(0xFF1E88E5), isNavigable = true)
+    InfoCard(icon = Icons.Default.Apartment, title = "Department", primaryText = employee?.department ?: "N/A", isChip = true, iconTint = Color(0xFF1E88E5))
 }
 
 

@@ -15,6 +15,7 @@ import com.example.employeeperformancetracker.ui.analytics.AnalyticsScreen
 import com.example.employeeperformancetracker.ui.assigntask.AssignTaskScreen
 import com.example.employeeperformancetracker.ui.attendance.AttendanceScreen
 import com.example.employeeperformancetracker.ui.attendance.EmployeeAttendanceScreen
+import com.example.employeeperformancetracker.ui.attendance.EmployeeApplyLeaveScreen
 import com.example.employeeperformancetracker.ui.dashboard.DashboardScreen
 import com.example.employeeperformancetracker.ui.employee_dashboard.EmployeeDashboardScreen
 import com.example.employeeperformancetracker.ui.employee_login.EmployeeLoginScreen
@@ -35,6 +36,8 @@ import com.example.employeeperformancetracker.ui.reportsandsettings.ReportsAndSe
 import com.example.employeeperformancetracker.ui.splash.SplashScreen
 import com.example.employeeperformancetracker.ui.tasklist.TaskListScreen
 import com.example.employeeperformancetracker.ui.adminprofile.AdminProfileScreen
+import com.example.employeeperformancetracker.ui.employee.notifications.EmployeeNotificationScreen
+import com.example.employeeperformancetracker.ui.admin.notifications.AdminNotificationScreen
 
 @Composable
 fun NavigationGraph(navController: NavHostController, drawerState: DrawerState) {
@@ -133,6 +136,15 @@ fun NavigationGraph(navController: NavHostController, drawerState: DrawerState) 
         }
         composable("employee_attendance") {
             EmployeeAttendanceScreen(navController = navController)
+        }
+        composable("employee_notifications") {
+            EmployeeNotificationScreen(navController = navController)
+        }
+        composable("employee_apply_leave") {
+            EmployeeApplyLeaveScreen(navController = navController)
+        }
+        composable("admin_notifications") {
+            AdminNotificationScreen(navController = navController)
         }
     }
 }
