@@ -60,6 +60,13 @@ import com.example.employeeperformancetracker.data.EmployeeRepository
 import kotlinx.coroutines.launch
 import android.widget.Toast
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import com.example.employeeperformancetracker.data.ImageRepository
+import android.net.Uri
+import java.io.InputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,6 +114,41 @@ fun EmployeeForm(navController: NavController) {
     var joiningDate by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var uploadedImageUrl by remember { mutableStateOf<String?>(null) }
+    var isUploading by remember { mutableStateOf(false) }
+
+    val imageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            selectedImageUri = it
+            // Trigger upload immediately upon selection or wait for submit? 
+            // Let's upload immediately to get the URL ready
+            scope.launch {
+                isUploading = true
+                try {
+                    val inputStream: InputStream? = context.contentResolver.openInputStream(it)
+                    val byteArray = inputStream?.readBytes()
+                    
+                    if (byteArray != null) {
+                        val result = ImageRepository.uploadImage(byteArray)
+                        if (result.isSuccess) {
+                            uploadedImageUrl = result.getOrNull()
+                            Toast.makeText(context, "Image uploaded!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Upload failed: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Error reading image: ${e.message}", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isUploading = false
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier.padding(16.dp),
@@ -134,11 +176,27 @@ fun EmployeeForm(navController: NavController) {
                                 .size(32.dp)
                                 .background(MaterialTheme.colorScheme.primary, CircleShape)
                                 .border(2.dp, Color.White, CircleShape)
-                                .clickable { /* TODO: Handle image picker */ },
+                                .clickable { imageLauncher.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = "Upload Image", tint = Color.White, modifier = Modifier.size(18.dp))
+                            if (isUploading) {
+                                androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.CameraAlt, contentDescription = "Upload Image", tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
                         }
+                    }
+                    if (selectedImageUri != null) {
+                       AsyncImage(
+                            model = selectedImageUri,
+                            contentDescription = "Selected Image",
+                            modifier = Modifier
+                                .size(100.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, Color.Gray, CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Upload profile image", color = Color.Gray)
@@ -184,7 +242,8 @@ fun EmployeeForm(navController: NavController) {
                         position = role,
                         phoneNumber = phone,
                         joiningDate = joiningDate,
-                        rating = 0f
+                        rating = 0f,
+                        profileImageUrl = uploadedImageUrl
                     )
                     val result = EmployeeRepository.addEmployee(newEmployee)
                     isSubmitting = false

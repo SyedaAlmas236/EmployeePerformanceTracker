@@ -25,14 +25,85 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.employeeperformancetracker.R
 import com.example.employeeperformancetracker.ui.navigation.Screen
+import com.example.employeeperformancetracker.data.auth.AuthRepository
+import com.example.employeeperformancetracker.data.auth.UserProfile
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
+import com.example.employeeperformancetracker.data.ImageRepository
+import android.net.Uri
+import java.io.InputStream
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 @Composable
 fun AdminProfileScreen(navController: NavController) {
+    val context = LocalContext.current
     var pushNotifications by remember { mutableStateOf(true) }
     var emailNotifications by remember { mutableStateOf(true) }
     var taskReminders by remember { mutableStateOf(true) }
     var darkMode by remember { mutableStateOf(false) }
     var autoSync by remember { mutableStateOf(true) }
+    var userProfile by remember { mutableStateOf<UserProfile?>(null) }
+    var isUploading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val imageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                isUploading = true
+                try {
+                    val inputStream: InputStream? = context.contentResolver.openInputStream(it)
+                    val byteArray = inputStream?.readBytes()
+                    
+                    if (byteArray != null) {
+                        println("AdminProfileScreen: Image selected, size: ${byteArray.size} bytes")
+                        val result = ImageRepository.uploadImage(byteArray)
+                        if (result.isSuccess) {
+                            val url = result.getOrNull()
+                            println("AdminProfileScreen: Upload success, URL: $url")
+                            if (url != null) {
+                                val authRepo = AuthRepository()
+                                val updateResult = authRepo.updateProfileImage(url)
+                                if (updateResult.isSuccess) {
+                                    println("AdminProfileScreen: DB update success")
+                                    Toast.makeText(context, "Profile image updated!", Toast.LENGTH_SHORT).show()
+                                    // Refresh profile
+                                    val profileResult = authRepo.getProfile()
+                                    userProfile = profileResult.getOrNull()
+                                } else {
+                                     val error = updateResult.exceptionOrNull()
+                                     println("AdminProfileScreen: DB update failed: ${error?.message}")
+                                     error?.printStackTrace()
+                                     Toast.makeText(context, "Failed to update profile: ${error?.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        } else {
+                            val error = result.exceptionOrNull()
+                            println("AdminProfileScreen: Upload failed: ${error?.message}")
+                            error?.printStackTrace()
+                            Toast.makeText(context, "Upload failed: ${error?.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                         println("AdminProfileScreen: Failed to read image bytes")
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isUploading = false
+                }
+            }
+        }
+    }
+    
+    LaunchedEffect(Unit) {
+        val authRepo = AuthRepository()
+        val profileResult = authRepo.getProfile()
+        userProfile = profileResult.getOrNull()
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -91,19 +162,20 @@ fun AdminProfileScreen(navController: NavController) {
                                 modifier = Modifier.padding(24.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_launcher_background), // Using existing placeholder
+                                AsyncImage(
+                                    model = userProfile?.profileImageUrl ?: R.drawable.ic_launcher_background,
                                     contentDescription = "Profile Photo",
                                     modifier = Modifier
                                         .size(80.dp)
                                         .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.2f)),
+                                        .background(Color.White.copy(alpha = 0.2f))
+                                        .clickable { imageLauncher.launch("image/*") },
                                     contentScale = ContentScale.Crop
                                 )
                                 Spacer(modifier = Modifier.width(20.dp))
                                 Column {
                                     Text(
-                                        text = "Admin User",
+                                        text = userProfile?.name ?: "Admin User",
                                         color = Color.White,
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Bold
@@ -114,7 +186,7 @@ fun AdminProfileScreen(navController: NavController) {
                                         fontSize = 14.sp
                                     )
                                     Text(
-                                        text = "EMP-0001",
+                                        text = userProfile?.id ?: "EMP-0001",
                                         color = Color.White.copy(alpha = 0.6f),
                                         fontSize = 12.sp
                                     )
@@ -130,7 +202,7 @@ fun AdminProfileScreen(navController: NavController) {
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0F0F0))
                         ) {
                             Column {
-                                ContactItem(Icons.Default.Email, "Email", "admin@workforce.com", Color(0xFFE8EAF6), Color(0xFF3F51B5))
+                                ContactItem(Icons.Default.Email, "Email", userProfile?.email ?: "admin@workforce.com", Color(0xFFE8EAF6), Color(0xFF3F51B5))
                                 Divider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFF0F0F0))
                                 ContactItem(Icons.Default.Phone, "Phone", "+1 (555) 123-4567", Color(0xFFE8F5E9), Color(0xFF4CAF50))
                                 Divider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFF0F0F0))
@@ -139,7 +211,7 @@ fun AdminProfileScreen(navController: NavController) {
                         }
 
                         SectionTitle("Quick Actions")
-                        ActionItem(Icons.Default.PersonOutline, "Edit Profile", { })
+                        ActionItem(Icons.Default.PersonOutline, "Edit Profile", { imageLauncher.launch("image/*") })
                         Spacer(modifier = Modifier.height(8.dp))
                         ActionItem(Icons.Default.LockOpen, "Change Password", { })
 

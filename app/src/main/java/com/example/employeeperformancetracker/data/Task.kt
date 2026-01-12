@@ -8,7 +8,7 @@ data class Task(
     @SerialName("id") val id: String? = null,
     @SerialName("title") val title: String,
     @SerialName("description") val description: String? = null,
-    @SerialName("priority") val priority: String? = "medium", // 'high', 'medium', 'low'
+    @SerialName("priority") val priority: String? = null, // 'High', 'Medium', 'Low'
     @SerialName("status") val status: String? = "pending", // 'pending', 'in_progress', 'completed', 'overdue'
     @SerialName("deadline") val deadline: String? = null,
     @SerialName("assigned_to") val assignedTo: String? = null, // UUID from employees

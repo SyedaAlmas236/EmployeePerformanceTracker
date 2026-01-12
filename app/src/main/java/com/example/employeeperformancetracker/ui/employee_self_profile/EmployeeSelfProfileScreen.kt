@@ -1,6 +1,7 @@
 package com.example.employeeperformancetracker.ui.employee_self_profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +33,16 @@ import com.example.employeeperformancetracker.data.EmployeeRepository
 import com.example.employeeperformancetracker.data.auth.AuthViewModel
 import com.example.employeeperformancetracker.ui.employee_dashboard.BottomNavigationBar
 import com.example.employeeperformancetracker.ui.navigation.Screen
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.employeeperformancetracker.data.ImageRepository
+import android.net.Uri
+import java.io.InputStream
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +53,46 @@ fun EmployeeSelfProfileScreen(
     var showPasswordDialog by remember { mutableStateOf(false) }
     var employee by remember { mutableStateOf<Employee?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var isUploading by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val imageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                isUploading = true
+                try {
+                    val inputStream: InputStream? = context.contentResolver.openInputStream(it)
+                    val byteArray = inputStream?.readBytes()
+                    
+                    if (byteArray != null) {
+                        val result = ImageRepository.uploadImage(byteArray)
+                        if (result.isSuccess) {
+                            val url = result.getOrNull()
+                            if (url != null && employee != null) {
+                                val updatedEmployee = employee!!.copy(profileImageUrl = url)
+                                val updateResult = EmployeeRepository.updateEmployee(updatedEmployee)
+                                if (updateResult.isSuccess) {
+                                    Toast.makeText(context, "Profile image updated!", Toast.LENGTH_SHORT).show()
+                                    employee = updatedEmployee // Update local state
+                                } else {
+                                     Toast.makeText(context, "Failed to update profile: ${updateResult.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        } else {
+                            Toast.makeText(context, "Upload failed: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isUploading = false
+                }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         val currentUser = authViewModel.getCurrentUser()
@@ -85,7 +136,7 @@ fun EmployeeSelfProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                ProfileHeaderCard(employee)
+                ProfileHeaderCard(employee, onEditImageClick = { imageLauncher.launch("image/*") }, isUploading)
                 PersonalInformationCard(employee)
                 AccountActionsCard(navController) { showPasswordDialog = true }
             }
@@ -98,7 +149,7 @@ fun EmployeeSelfProfileScreen(
 }
 
 @Composable
-fun ProfileHeaderCard(employee: Employee?) {
+fun ProfileHeaderCard(employee: Employee?, onEditImageClick: () -> Unit, isUploading: Boolean) {
     val accentColor = Color(0xFF43A047)
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -120,22 +171,42 @@ fun ProfileHeaderCard(employee: Employee?) {
                         .background(accentColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = (employee?.name?.take(2)?.uppercase() ?: "??"),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 32.sp
-                    )
+                    if (employee?.profileImageUrl != null) {
+                         AsyncImage(
+                            model = employee.profileImageUrl,
+                            contentDescription = "Profile Photo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Text(
+                                text = (employee?.name?.take(2)?.uppercase() ?: "??"),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 32.sp
+                            )
+                        }
+                    } 
                 }
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit Profile",
-                    tint = Color.White,
+                Box(
                     modifier = Modifier
                         .size(32.dp)
                         .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                        .padding(6.dp)
-                )
+                        .clickable { onEditImageClick() }
+                        .padding(6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isUploading) {
+                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                         Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Profile",
+                            tint = Color.White
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(employee?.name ?: "Loading...", fontWeight = FontWeight.Bold, fontSize = 22.sp)

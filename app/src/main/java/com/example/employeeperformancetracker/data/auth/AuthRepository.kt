@@ -7,6 +7,7 @@ import io.github.jan.supabase.postgrest.query.Columns
 import com.example.employeeperformancetracker.data.SupabaseConfig
 import com.example.employeeperformancetracker.data.Admin
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -14,7 +15,9 @@ import kotlinx.serialization.json.put
 data class UserProfile(
     val id: String,
     val email: String,
-    val role: String
+    @SerialName("full_name") val name: String? = null, // Mapped from DB JSON
+    val role: String,
+    @SerialName("profile_image_url") val profileImageUrl: String? = null
 )
 
 class AuthRepository {
@@ -76,7 +79,7 @@ class AuthRepository {
                 ?: return Result.failure(Exception("User not found"))
 
             val profile = supabase.from("profiles")
-                .select(columns = Columns.raw("id,email,role")) {
+                .select(columns = Columns.raw("id,email,role,full_name")) { // Fetch full_name
                     filter {
                         eq("id", userId)
                     }
@@ -146,4 +149,38 @@ class AuthRepository {
 
     // Check if user is logged in
     fun isLoggedIn() = supabase.auth.currentUserOrNull() != null
+    
+    suspend fun getProfile(): Result<UserProfile> {
+        val userId = supabase.auth.currentUserOrNull()?.id ?: return Result.failure(Exception("Not logged in"))
+        return try {
+            val profile = supabase.from("profiles")
+                .select(columns = Columns.raw("id,email,role,full_name,profile_image_url")) {
+                    filter {
+                        eq("id", userId)
+                    }
+                }
+                .decodeSingle<UserProfile>()
+            Result.success(profile)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateProfileImage(url: String): Result<Unit> {
+        val userId = supabase.auth.currentUserOrNull()?.id ?: return Result.failure(Exception("Not logged in"))
+        return try {
+            supabase.from("profiles").update(
+                {
+                    set("profile_image_url", url)
+                }
+            ) {
+                filter {
+                    eq("id", userId)
+                }
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

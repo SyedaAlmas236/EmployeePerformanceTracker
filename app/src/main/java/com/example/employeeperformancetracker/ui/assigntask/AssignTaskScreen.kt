@@ -8,6 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.employeeperformancetracker.data.SupabaseConfig
+import io.github.jan.supabase.gotrue.auth
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,6 +39,7 @@ fun AssignTaskScreen(navController: NavController) {
     
     val scope = rememberCoroutineScope()
     var isSubmitting by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         employees = EmployeeRepository.getEmployees()
@@ -57,7 +60,8 @@ fun AssignTaskScreen(navController: NavController) {
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -160,13 +164,35 @@ fun AssignTaskScreen(navController: NavController) {
                             title = title,
                             description = description,
                             assignedTo = selectedEmployee?.id,
-                            priority = selectedPriority.lowercase(),
+                            priority = selectedPriority.lowercase(), // Reverting to lowercase to match DB constraint likely
                             deadline = deadline,
-                            status = "pending" // Correct default status
+                            status = "pending", // Correct default status
+                            createdBy = SupabaseConfig.client.auth.currentUserOrNull()?.id // Populate created_by
                         )
+                        
+                        // Debugging: Check if user is logged in
+                        if (task.createdBy == null) {
+                             snackbarHostState.showSnackbar(
+                                message = "Error: You appear to be logged out. Please re-login.",
+                                duration = SnackbarDuration.Long
+                            )
+                            isSubmitting = false
+                            return@launch
+                        }
+
                         val result = TaskRepository.addTask(task)
                         if (result.isSuccess) {
+                            // Temporary Debug: Show success with ID to confirm it was sent
+                             snackbarHostState.showSnackbar(
+                                message = "Task created! Creator ID: ${task.createdBy}",
+                                duration = SnackbarDuration.Short
+                            )
                             navController.popBackStack()
+                        } else {
+                            snackbarHostState.showSnackbar(
+                                message = "Failed to create task (ID: ${task.createdBy}): ${result.exceptionOrNull()?.message}",
+                                duration = SnackbarDuration.Long
+                            )
                         }
                         isSubmitting = false
                     }

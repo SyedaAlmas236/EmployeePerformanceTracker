@@ -58,6 +58,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.employeeperformancetracker.R
 import com.example.employeeperformancetracker.data.Employee
 import com.example.employeeperformancetracker.data.EmployeeRepository
@@ -69,6 +73,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import com.example.employeeperformancetracker.data.auth.AuthRepository
+import com.example.employeeperformancetracker.data.auth.UserProfile
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,16 +82,33 @@ fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
     val scope = rememberCoroutineScope()
     var employees by remember { mutableStateOf<List<Employee>>(emptyList()) }
     var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var userProfile by remember { mutableStateOf<UserProfile?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
-        employees = EmployeeRepository.getEmployees()
-        if (employees.isEmpty()) {
-            EmployeeRepository.fetchEmployees()
-            employees = EmployeeRepository.getEmployees()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                 scope.launch {
+                    // Refresh Data
+                    if (EmployeeRepository.getEmployees().isEmpty()) {
+                        EmployeeRepository.fetchEmployees()
+                    }
+                    employees = EmployeeRepository.getEmployees()
+                    tasks = TaskRepository.getTasks()
+                    
+                    val authRepo = AuthRepository()
+                    val profileResult = authRepo.getProfile()
+                    userProfile = profileResult.getOrNull()
+                    
+                    isLoading = false
+                }
+            }
         }
-        tasks = TaskRepository.getTasks()
-        isLoading = false
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Scaffold(
@@ -101,7 +124,7 @@ fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            Header(scope, drawerState, navController)
+            Header(scope, drawerState, navController, userProfile)
             KPISection(employees, tasks)
             TopPerformersSection(navController, employees)
             Spacer(modifier = Modifier.height(16.dp))
@@ -138,7 +161,7 @@ fun DashboardScreen(navController: NavController, drawerState: DrawerState) {
 }
 
 @Composable
-private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: DrawerState, navController: NavController) {
+private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: DrawerState, navController: NavController, userProfile: UserProfile?) {
     Column(
         modifier = Modifier
             .background(
@@ -164,19 +187,21 @@ private fun Header(scope: kotlinx.coroutines.CoroutineScope, drawerState: Drawer
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_background), // Placeholder
+                Spacer(modifier = Modifier.width(8.dp))
+                AsyncImage(
+                    model = userProfile?.profileImageUrl ?: R.drawable.ic_launcher_background,
                     contentDescription = "Admin Profile",
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .clickable { navController.navigate(Screen.AdminProfile.route) }
+                        .clickable { navController.navigate(Screen.AdminProfile.route) },
+                    contentScale = ContentScale.Crop
                 )
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Dashboard", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text(text = "Welcome back, Admin", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+        Text(text = "Welcome back, ${userProfile?.name ?: "Admin"}", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
     }
 }
 
